@@ -64,6 +64,7 @@ export const DocumentItemsTable: React.FC<DocumentItemsTableProps> = ({
   const focusRefs = useRef<Map<string, HTMLElement>>(new Map());
   const listRef = useRef<FixedSizeListType>(null);
   const handledErrorItemsRef = useRef<Set<number>>(new Set());
+  const optimisticSnapshotsRef = useRef<Map<number, DocumentLineItem>>(new Map());
 
   const { data: articles, isLoading: articlesLoading } = useArticles();
   const { data: taxRates, isLoading: taxRatesLoading } = useTaxRates();
@@ -86,6 +87,8 @@ export const DocumentItemsTable: React.FC<DocumentItemsTableProps> = ({
       const loadedItems = await api.items.getItems(documentId);
       setItems(loadedItems);
       initializeETags(loadedItems);
+      optimisticSnapshotsRef.current.clear();
+      handledErrorItemsRef.current.clear();
     } catch (err) {
       const message =
         typeof err === 'object' && err !== null && 'message' in err
@@ -108,6 +111,16 @@ export const DocumentItemsTable: React.FC<DocumentItemsTableProps> = ({
       }
 
       if (state.status === 'error') {
+        const snapshot = optimisticSnapshotsRef.current.get(state.id);
+        if (snapshot) {
+          setItems((prev) =>
+            prev.map((item) =>
+              item.id === state.id ? ({ ...snapshot } as DocumentLineItem) : item
+            )
+          );
+          optimisticSnapshotsRef.current.delete(state.id);
+        }
+
         if (handledErrorItemsRef.current.has(state.id)) {
           return;
         }
@@ -123,6 +136,9 @@ export const DocumentItemsTable: React.FC<DocumentItemsTableProps> = ({
             );
           }
         })();
+      } else if (state.status === 'saved') {
+        optimisticSnapshotsRef.current.delete(state.id);
+        handledErrorItemsRef.current.delete(state.id);
       } else {
         handledErrorItemsRef.current.delete(state.id);
       }
@@ -132,9 +148,17 @@ export const DocumentItemsTable: React.FC<DocumentItemsTableProps> = ({
   const handleValueChange = useCallback(
     (itemId: number, field: string, value: string | number) => {
       setItems((prev) =>
-        prev.map((item) =>
-          item.id === itemId ? ({ ...item, [field]: value } as DocumentLineItem) : item
-        )
+        prev.map((item) => {
+          if (item.id !== itemId) {
+            return item;
+          }
+
+          if (!optimisticSnapshotsRef.current.has(itemId)) {
+            optimisticSnapshotsRef.current.set(itemId, { ...item });
+          }
+
+          return { ...item, [field]: value } as DocumentLineItem;
+        })
       );
       debouncedSave(itemId, field, value);
     },
