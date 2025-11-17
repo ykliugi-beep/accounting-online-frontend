@@ -100,8 +100,8 @@ export const DocumentItemsTable: React.FC<DocumentItemsTableProps> = ({
       setLoading(true);
       setError(null);
       const loadedItems = await api.items.getItems(documentId);
-      setItems(loadedItems as unknown as DocumentLineItem[]);
-      initializeETags(loadedItems as unknown as DocumentLineItem[]);
+      setItems(loadedItems);
+      initializeETags(loadedItems);
     } catch (err) {
       const message =
         typeof err === 'object' && err !== null && 'message' in err
