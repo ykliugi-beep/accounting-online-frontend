@@ -1,15 +1,21 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  TableCell,
-  TextField,
   Box,
+  TextField,
   Typography,
   CircularProgress,
   Tooltip,
   Fade,
+  MenuItem,
 } from '@mui/material';
-import { Check, Error, HourglassThin } from '@mui/icons-material';
+import { Check, Error as ErrorIcon } from '@mui/icons-material';
 import { AutoSaveStatus } from '../types';
+
+export type CellNavigationDirection =
+  | 'nextColumn'
+  | 'prevColumn'
+  | 'nextRow'
+  | 'prevRow';
 
 interface EditableCellProps {
   value: number | string;
@@ -21,17 +27,11 @@ interface EditableCellProps {
   error?: string;
   disabled?: boolean;
   selectOptions?: { value: string | number; label: string }[];
+  inputRef?: (
+    element: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null
+  ) => void;
+  onMove?: (direction: CellNavigationDirection) => void;
 }
-
-/**
- * EDITABLE CELL - Inline uređivanje sa autosave statusom
- *
- * STATUS INDIKATORI:
- * - idle: Normalno stanje
- * - saving: Prikazuje loader (sprema se...)
- * - saved: Zelena cekvala (✓ Spravljeno)
- * - error: Crveni X (⚠ Greška)
- */
 
 export const EditableCell: React.FC<EditableCellProps> = ({
   value,
@@ -43,57 +43,111 @@ export const EditableCell: React.FC<EditableCellProps> = ({
   error,
   disabled = false,
   selectOptions = [],
+  inputRef,
+  onMove,
 }) => {
-  const [isEditing, setIsEditing] = useState(false);
-  const [tempValue, setTempValue] = useState(String(value));
-  const [isFocused, setIsFocused] = useState(false);
+  const [tempValue, setTempValue] = useState<string>(String(value ?? ''));
 
-  // Sinhronizuj tempValue sa value kada se promeni spolja
   useEffect(() => {
-    if (!isEditing) {
-      setTempValue(String(value));
-    }
-  }, [value, isEditing]);
+    setTempValue(String(value ?? ''));
+  }, [value]);
 
-  const handleChange = useCallback(
-    (newValue: string) => {
-      setTempValue(newValue);
-    },
-    []
-  );
+  const commitValue = useCallback(() => {
+    let finalValue: string | number = tempValue;
 
-  const handleBlur = useCallback(() => {
-    setIsFocused(false);
-    
-    if (tempValue !== String(value)) {
-      // Konvertuj vrednost prema tipu
-      let finalValue: string | number = tempValue;
-      if (type === 'number') {
-        finalValue = parseInt(tempValue) || 0;
-      } else if (type === 'decimal') {
-        finalValue = parseFloat(tempValue) || 0;
+    if (type === 'number' || type === 'decimal') {
+      const parsed = tempValue === '' ? 0 : Number(tempValue);
+      finalValue = Number.isNaN(parsed) ? 0 : parsed;
+    } else if (type === 'select') {
+      if (typeof value === 'number') {
+        const parsed = tempValue === '' ? 0 : Number(tempValue);
+        finalValue = Number.isNaN(parsed) ? 0 : parsed;
+      } else {
+        finalValue = tempValue;
       }
+    }
 
+    if (finalValue !== value) {
       onValueChange(itemId, field, finalValue);
     }
+  }, [field, itemId, onValueChange, tempValue, type, value]);
 
-    setIsEditing(false);
-  }, [itemId, field, tempValue, value, type, onValueChange]);
+  const handleBlur = useCallback(() => {
+    commitValue();
+  }, [commitValue]);
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      handleBlur();
-    } else if (e.key === 'Escape') {
-      setIsEditing(false);
-      setTempValue(String(value));
-    } else if (e.key === 'Tab') {
-      handleBlur();
-    }
+  const handleKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        commitValue();
+        onMove?.(event.shiftKey ? 'prevRow' : 'nextRow');
+        return;
+      }
+
+      if (event.key === 'Tab') {
+        event.preventDefault();
+        commitValue();
+        onMove?.(event.shiftKey ? 'prevColumn' : 'nextColumn');
+        return;
+      }
+
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        setTempValue(String(value ?? ''));
+      }
+    },
+    [commitValue, onMove, value]
+  );
+
+  const handleFocus = (event: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    event.target.select();
   };
 
-  // ==========================================
-  // STATUS INDIKATOR
-  // ==========================================
+  const renderInput = () => {
+    const commonProps = {
+      size: 'small' as const,
+      value: tempValue,
+      onChange: (e: React.ChangeEvent<HTMLInputElement>) => setTempValue(e.target.value),
+      onBlur: handleBlur,
+      onKeyDown: handleKeyDown,
+      onFocus: handleFocus,
+      inputRef,
+      fullWidth: true,
+      disabled,
+      error: Boolean(error),
+    };
+
+    if (type === 'select') {
+      return (
+        <TextField
+          select
+          {...commonProps}
+          SelectProps={{
+            MenuProps: { PaperProps: { sx: { maxHeight: 320 } } },
+          }}
+        >
+          {selectOptions.map((opt) => (
+            <MenuItem key={opt.value} value={opt.value}>
+              {opt.label}
+            </MenuItem>
+          ))}
+        </TextField>
+      );
+    }
+
+    const inputType = type === 'decimal' || type === 'number' ? 'number' : 'text';
+
+    return (
+      <TextField
+        {...commonProps}
+        type={inputType}
+        inputProps={{
+          step: type === 'decimal' ? '0.01' : undefined,
+        }}
+      />
+    );
+  };
 
   const statusIcon = () => {
     switch (status) {
@@ -105,14 +159,14 @@ export const EditableCell: React.FC<EditableCellProps> = ({
         );
       case 'saved':
         return (
-          <Tooltip title="Spravljeno">
+          <Tooltip title="Sačuvano">
             <Check sx={{ fontSize: 18, color: '#4caf50' }} />
           </Tooltip>
         );
       case 'error':
         return (
           <Tooltip title={error || 'Greška pri čuvanju'}>
-            <Error sx={{ fontSize: 18, color: '#f44336' }} />
+            <ErrorIcon sx={{ fontSize: 18, color: '#f44336' }} />
           </Tooltip>
         );
       default:
@@ -120,108 +174,33 @@ export const EditableCell: React.FC<EditableCellProps> = ({
     }
   };
 
-  // ==========================================
-  // RENDER
-  // ==========================================
-
   return (
-    <TableCell
+    <Box
       sx={{
-        padding: '8px 12px',
-        border: isFocused ? '2px solid #1976d2' : '1px solid #e0e0e0',
-        backgroundColor: isEditing ? '#f5f5f5' : 'inherit',
-        transition: 'all 0.2s',
-        cursor: disabled ? 'not-allowed' : 'pointer',
-        opacity: disabled ? 0.6 : 1,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 1,
       }}
-      onClick={() => !disabled && setIsEditing(true)}
     >
-      <Box
-        display="flex"
-        alignItems="center"
-        justifyContent="space-between"
-        gap={1}
-      >
-        <Box flex={1}>
-          {isEditing ? (
-            type === 'select' ? (
-              <TextField
-                select
-                size="small"
-                value={tempValue}
-                onChange={(e) => handleChange(e.target.value)}
-                onBlur={handleBlur}
-                onKeyDown={handleKeyDown}
-                onFocus={() => setIsFocused(true)}
-                autoFocus
-                disabled={disabled}
-                fullWidth
-                SelectProps={{
-                  MenuProps: { PaperProps: { sx: { maxHeight: 300 } } },
-                }}
-              >
-                {selectOptions.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </TextField>
-            ) : (
-              <TextField
-                size="small"
-                type={type === 'decimal' || type === 'number' ? 'number' : 'text'}
-                inputProps={{
-                  step: type === 'decimal' ? '0.01' : undefined,
-                  disabled: disabled,
-                }}
-                value={tempValue}
-                onChange={(e) => handleChange(e.target.value)}
-                onBlur={handleBlur}
-                onKeyDown={handleKeyDown}
-                onFocus={() => setIsFocused(true)}
-                autoFocus
-                fullWidth
-              />
-            )
-          ) : (
-            <Typography
-              variant="body2"
-              sx={{
-                fontFamily: 'monospace',
-                color: error ? '#f44336' : 'inherit',
-                textDecoration: error ? 'underline wavy' : 'none',
-              }}
-            >
-              {type === 'decimal'
-                ? parseFloat(String(value)).toFixed(2)
-                : value}
-            </Typography>
-          )}
+      <Box flex={1}>{renderInput()}</Box>
+      <Fade in={status !== 'idle'}>
+        <Box display="flex" alignItems="center">
+          {statusIcon()}
         </Box>
-
-        {/* STATUS INDIKATOR */}
-        <Fade in={status !== 'idle'}>
-          <Box display="flex" alignItems="center">
-            {statusIcon()}
-          </Box>
-        </Fade>
-      </Box>
-
-      {/* ERROR PORUKA ISPOD VREDNOSTI */}
+      </Fade>
       {error && (
         <Typography
           variant="caption"
           sx={{
-            display: 'block',
             color: '#f44336',
-            mt: 0.5,
+            display: 'block',
             fontStyle: 'italic',
           }}
         >
           {error}
         </Typography>
       )}
-    </TableCell>
+    </Box>
   );
 };
 
