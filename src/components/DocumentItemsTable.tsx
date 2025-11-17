@@ -65,6 +65,7 @@ export const DocumentItemsTable: React.FC<DocumentItemsTableProps> = ({
   const listRef = useRef<FixedSizeListType>(null);
   const handledErrorItemsRef = useRef<Set<number>>(new Set());
   const optimisticSnapshotsRef = useRef<Map<number, DocumentLineItem>>(new Map());
+  const lastKnownItemsRef = useRef<Map<number, DocumentLineItem>>(new Map());
 
   const { data: articles, isLoading: articlesLoading } = useArticles();
   const { data: taxRates, isLoading: taxRatesLoading } = useTaxRates();
@@ -87,6 +88,9 @@ export const DocumentItemsTable: React.FC<DocumentItemsTableProps> = ({
       const loadedItems = await api.items.getItems(documentId);
       setItems(loadedItems);
       initializeETags(loadedItems);
+      lastKnownItemsRef.current = new Map(
+        loadedItems.map((item) => [item.id, { ...item }])
+      );
       optimisticSnapshotsRef.current.clear();
       handledErrorItemsRef.current.clear();
     } catch (err) {
@@ -112,14 +116,19 @@ export const DocumentItemsTable: React.FC<DocumentItemsTableProps> = ({
 
       if (state.status === 'error') {
         const snapshot = optimisticSnapshotsRef.current.get(state.id);
-        if (snapshot) {
+        const lastKnown = lastKnownItemsRef.current.get(state.id);
+        if (snapshot || lastKnown) {
+          const fallback = snapshot ?? lastKnown;
           setItems((prev) =>
             prev.map((item) =>
-              item.id === state.id ? ({ ...snapshot } as DocumentLineItem) : item
+              item.id === state.id && fallback
+                ? ({ ...fallback } as DocumentLineItem)
+                : item
             )
           );
-          optimisticSnapshotsRef.current.delete(state.id);
         }
+
+        optimisticSnapshotsRef.current.delete(state.id);
 
         if (handledErrorItemsRef.current.has(state.id)) {
           return;
@@ -134,16 +143,21 @@ export const DocumentItemsTable: React.FC<DocumentItemsTableProps> = ({
                 item.id === state.id ? (refreshed as DocumentLineItem) : item
               )
             );
+            lastKnownItemsRef.current.set(state.id, { ...refreshed });
           }
         })();
       } else if (state.status === 'saved') {
         optimisticSnapshotsRef.current.delete(state.id);
         handledErrorItemsRef.current.delete(state.id);
+        const currentItem = items.find((item) => item.id === state.id);
+        if (currentItem) {
+          lastKnownItemsRef.current.set(state.id, { ...currentItem });
+        }
       } else {
         handledErrorItemsRef.current.delete(state.id);
       }
     });
-  }, [autoSaveMap, refreshItem]);
+  }, [autoSaveMap, refreshItem, items]);
 
   const handleValueChange = useCallback(
     (itemId: number, field: string, value: string | number) => {
@@ -176,6 +190,10 @@ export const DocumentItemsTable: React.FC<DocumentItemsTableProps> = ({
     try {
       const created = await api.items.createItem(documentId, newItem);
       setItems((prev) => [...prev, created as unknown as DocumentLineItem]);
+      lastKnownItemsRef.current.set(
+        created.id,
+        created as unknown as DocumentLineItem
+      );
     } catch (err) {
       alert('Greška pri kreiranju stavke');
     }
@@ -186,6 +204,7 @@ export const DocumentItemsTable: React.FC<DocumentItemsTableProps> = ({
       try {
         await api.items.deleteItem(documentId, itemId);
         setItems((prev) => prev.filter((item) => item.id !== itemId));
+        lastKnownItemsRef.current.delete(itemId);
         setAnchorEl(null);
       } catch (err) {
         alert('Greška pri brisanju stavke');
@@ -213,6 +232,10 @@ export const DocumentItemsTable: React.FC<DocumentItemsTableProps> = ({
               ? (refreshed as unknown as DocumentLineItem)
               : item
           )
+        );
+        lastKnownItemsRef.current.set(
+          conflictItemId,
+          refreshed as unknown as DocumentLineItem
         );
       }
     }
