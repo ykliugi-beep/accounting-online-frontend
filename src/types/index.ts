@@ -89,67 +89,80 @@ export interface CostArticleCombo {
 // LINE ITEM TIPOVI
 // ==========================================
 
-export interface DocumentLineItemCreateDto {
-  articleId: number;
-  quantity: number;
-  invoicePrice: number;
-  discountAmount?: number;
-  marginAmount?: number;
-  taxRateId?: string;
-  calculateExcise?: boolean;
-  calculateTax?: boolean;
-  description?: string;
-  organizationalUnitId?: number;
-}
-
-export interface DocumentLineItemPatchDto {
-  quantity?: number;
-  invoicePrice?: number;
-  discountAmount?: number;
-  marginAmount?: number;
-  taxRateId?: string;
-  calculateExcise?: boolean;
-  calculateTax?: boolean;
-  description?: string;
-}
-
-export interface DocumentLineItem {
-  id: number;
+export interface DocumentLineItemCore {
   documentId: number;
   articleId: number;
-  quantity: number;
+  organizationalUnitId?: number;
+
+  // Količine i cene
+  quantity: number; // CHECK: quantity !== 0 (server rejects zero)
   invoicePrice: number;
-  discountAmount?: number;
-  marginAmount?: number;
+  purchasePrice: number;
+  warehousePrice: number;
+  documentDiscount: number;
+  activeMatterPercent: number;
+  volume: number;
+  excise: number;
+  quantityCoefficient: number;
+  discountAmount: number;
+  marginAmount: number;
+  marginValue: number;
+
+  // Porezi
+  taxPercent: number;
+  taxPercentMP: number;
+  taxAmount: number;
+  taxAmountWithExcise: number;
+  exciseAmount: number;
   taxRateId?: string;
-  taxPercent?: number;
-  taxAmount?: number;
-  total?: number;
+
+  // Zavisni troškovi
+  dependentCostsWithTax: number;
+  dependentCostsWithoutTax: number;
+
+  // Ukupni iznosi
+  total: number;
+  currencyPrice: number;
+  currencyTotal: number;
+
+  // Pakovanje i obračuni
+  unitOfMeasureId: string;
+  packaging: number;
   calculateExcise: boolean;
   calculateTax: boolean;
+  calculateAuxiliaryTax: boolean;
+  taxationMethodId?: number;
+  statusId?: number;
+
   description?: string;
-  // ==========================================
-  // KONKURENTNOST - OBAVEZNO!
-  eTag: string; // Base64(RowVersion)
-  // ==========================================
+}
+
+type DocumentLineItemMutableFields =
+  Omit<DocumentLineItemCore, 'documentId'> & { documentId?: number };
+
+export interface DocumentLineItemCreateDto
+  extends Partial<DocumentLineItemMutableFields> {
+  articleId: number;
+  quantity: number;
+  invoicePrice: number;
+}
+
+export type DocumentLineItemPatchDto = Partial<DocumentLineItemMutableFields>;
+
+export interface DocumentLineItem extends DocumentLineItemCore {
+  id: number;
+  eTag: string; // Base64(RowVersion) - OBAVEZNO za If-Match
   createdAt: string; // ISO datetime
   updatedAt: string; // ISO datetime
   createdBy?: number;
   updatedBy?: number;
 }
 
-export interface DocumentLineItemList {
-  id: number;
-  documentId: number;
-  articleId: number;
-  quantity: number;
-  invoicePrice: number;
-  total?: number;
-  taxAmount?: number;
-  calculateTax: boolean;
-  eTag: string;
-  updatedAt: string;
-}
+/**
+ * Lista stavki vraća isti payload kao i detalj - uključuje pune cene,
+ * zavisne troškove, kalkulacione flagove, audit metadata i ETag.
+ */
+export type DocumentLineItemList = DocumentLineItem;
 
 // ==========================================
 // API RESPONSE TIPOVI

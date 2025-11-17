@@ -84,8 +84,8 @@ export const DocumentItemsTable: React.FC<DocumentItemsTableProps> = ({
       setIsLoading(true);
       setError(null);
       const loadedItems = await api.items.getItems(documentId);
-      setItems(loadedItems as unknown as DocumentLineItem[]);
-      initializeETags(loadedItems as unknown as DocumentLineItem[]);
+      setItems(loadedItems);
+      initializeETags(loadedItems);
     } catch (err) {
       const message =
         typeof err === 'object' && err !== null && 'message' in err
@@ -123,7 +123,7 @@ export const DocumentItemsTable: React.FC<DocumentItemsTableProps> = ({
 
     try {
       const created = await api.items.createItem(documentId, newItem);
-      setItems([...items, created as unknown as DocumentLineItem]);
+      setItems([...items, created]);
     } catch (err) {
       alert('Greška pri kreiranju stavke');
     }
@@ -156,7 +156,7 @@ export const DocumentItemsTable: React.FC<DocumentItemsTableProps> = ({
         setItems(
           items.map((item) =>
             item.id === conflictItemId
-              ? (refreshed as unknown as DocumentLineItem)
+              ? refreshed
               : item
           )
         );
