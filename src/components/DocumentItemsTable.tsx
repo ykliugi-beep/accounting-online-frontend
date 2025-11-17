@@ -63,6 +63,7 @@ export const DocumentItemsTable: React.FC<DocumentItemsTableProps> = ({
 
   const focusRefs = useRef<Map<string, HTMLElement>>(new Map());
   const listRef = useRef<FixedSizeListType>(null);
+  const handledErrorItemsRef = useRef<Set<number>>(new Set());
 
   const { data: articles, isLoading: articlesLoading } = useArticles();
   const { data: taxRates, isLoading: taxRatesLoading } = useTaxRates();
@@ -99,6 +100,34 @@ export const DocumentItemsTable: React.FC<DocumentItemsTableProps> = ({
   useEffect(() => {
     loadItems();
   }, [loadItems]);
+
+  useEffect(() => {
+    Object.values(autoSaveMap).forEach((state) => {
+      if (!state?.id) {
+        return;
+      }
+
+      if (state.status === 'error') {
+        if (handledErrorItemsRef.current.has(state.id)) {
+          return;
+        }
+
+        handledErrorItemsRef.current.add(state.id);
+        (async () => {
+          const refreshed = await refreshItem(state.id);
+          if (refreshed) {
+            setItems((prev) =>
+              prev.map((item) =>
+                item.id === state.id ? (refreshed as DocumentLineItem) : item
+              )
+            );
+          }
+        })();
+      } else {
+        handledErrorItemsRef.current.delete(state.id);
+      }
+    });
+  }, [autoSaveMap, refreshItem]);
 
   const handleValueChange = useCallback(
     (itemId: number, field: string, value: string | number) => {
