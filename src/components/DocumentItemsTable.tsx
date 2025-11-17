@@ -60,18 +60,16 @@ export const DocumentItemsTable: React.FC<DocumentItemsTableProps> = ({
       deleteItem: state.deleteItem,
       replaceItem: state.replaceItem,
     }));
-  const { isLoading, setLoading, showConflictDialog, conflictData, openConflictDialog, closeConflictDialog } =
-    useUIStore((state) => ({
-      isLoading: state.isLoading,
-      setLoading: state.setLoading,
-      showConflictDialog: state.showConflictDialog,
-      conflictData: state.conflictData,
-      openConflictDialog: state.openConflictDialog,
-      closeConflictDialog: state.closeConflictDialog,
-    }));
+  const { showConflictDialog, conflictData, openConflictDialog, closeConflictDialog } = useUIStore((state) => ({
+    showConflictDialog: state.showConflictDialog,
+    conflictData: state.conflictData,
+    openConflictDialog: state.openConflictDialog,
+    closeConflictDialog: state.closeConflictDialog,
+  }));
   const [error, setError] = useState<string | null>(null);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedItemId, setSelectedItemId] = useState<number | null>(null);
+  const [isTableLoading, setIsTableLoading] = useState(false);
 
   // ==========================================
   // HOOKS
@@ -97,7 +95,7 @@ export const DocumentItemsTable: React.FC<DocumentItemsTableProps> = ({
 
   const loadItems = useCallback(async () => {
     try {
-      setLoading(true);
+      setIsTableLoading(true);
       setError(null);
       const loadedItems = await api.items.getItems(documentId);
       setItems(loadedItems);
@@ -109,9 +107,9 @@ export const DocumentItemsTable: React.FC<DocumentItemsTableProps> = ({
           : 'Greška pri učitavanju stavki';
       setError(message);
     } finally {
-      setLoading(false);
+      setIsTableLoading(false);
     }
-  }, [documentId, initializeETags, setItems, setLoading]);
+  }, [documentId, initializeETags, setItems]);
 
   useEffect(() => {
     loadItems();
@@ -189,7 +187,7 @@ export const DocumentItemsTable: React.FC<DocumentItemsTableProps> = ({
   // RENDER
   // ==========================================
 
-  if (isLoading || articlesLoading || taxRatesLoading) {
+  if (isTableLoading || articlesLoading || taxRatesLoading) {
     return (
       <Box display="flex" justifyContent="center" p={3}>
         <CircularProgress />
