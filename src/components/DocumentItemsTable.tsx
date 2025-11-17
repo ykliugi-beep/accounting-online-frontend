@@ -27,6 +27,7 @@ import { useArticles, useTaxRates } from '../hooks/useCombos';
 import { api } from '../api/endpoints';
 import EditableCell from './EditableCell';
 import ConflictDialog from './ConflictDialog';
+import { useDocumentStore, useUIStore } from '../store';
 
 interface DocumentItemsTableProps {
   documentId: number;
@@ -51,11 +52,24 @@ export const DocumentItemsTable: React.FC<DocumentItemsTableProps> = ({
   // STATE
   // ==========================================
 
-  const [items, setItems] = useState<DocumentLineItem[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { items, setItems, addItem: addItemToStore, deleteItem: deleteItemFromStore, replaceItem } =
+    useDocumentStore((state) => ({
+      items: state.items,
+      setItems: state.setItems,
+      addItem: state.addItem,
+      deleteItem: state.deleteItem,
+      replaceItem: state.replaceItem,
+    }));
+  const { isLoading, setLoading, showConflictDialog, conflictData, openConflictDialog, closeConflictDialog } =
+    useUIStore((state) => ({
+      isLoading: state.isLoading,
+      setLoading: state.setLoading,
+      showConflictDialog: state.showConflictDialog,
+      conflictData: state.conflictData,
+      openConflictDialog: state.openConflictDialog,
+      closeConflictDialog: state.closeConflictDialog,
+    }));
   const [error, setError] = useState<string | null>(null);
-  const [conflictDialogOpen, setConflictDialogOpen] = useState(false);
-  const [conflictItemId, setConflictItemId] = useState<number | null>(null);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedItemId, setSelectedItemId] = useState<number | null>(null);
 
@@ -70,8 +84,10 @@ export const DocumentItemsTable: React.FC<DocumentItemsTableProps> = ({
     useAutoSaveItems({
       documentId,
       onConflict: (itemId) => {
-        setConflictItemId(itemId);
-        setConflictDialogOpen(true);
+        openConflictDialog({
+          itemId,
+          message: 'Stavka je izmenjena od drugog korisnika.',
+        });
       },
     });
 
@@ -81,7 +97,7 @@ export const DocumentItemsTable: React.FC<DocumentItemsTableProps> = ({
 
   const loadItems = useCallback(async () => {
     try {
-      setIsLoading(true);
+      setLoading(true);
       setError(null);
       const loadedItems = await api.items.getItems(documentId);
       setItems(loadedItems);
@@ -93,9 +109,9 @@ export const DocumentItemsTable: React.FC<DocumentItemsTableProps> = ({
           : 'Greška pri učitavanju stavki';
       setError(message);
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
-  }, [documentId, initializeETags]);
+  }, [documentId, initializeETags, setItems, setLoading]);
 
   useEffect(() => {
     loadItems();
@@ -123,21 +139,21 @@ export const DocumentItemsTable: React.FC<DocumentItemsTableProps> = ({
 
     try {
       const created = await api.items.createItem(documentId, newItem);
-      setItems([...items, created]);
+      addItemToStore(created as unknown as DocumentLineItem);
     } catch (err) {
       alert('Greška pri kreiranju stavke');
     }
-  }, [documentId, items]);
+  }, [addItemToStore, documentId]);
 
   const handleDeleteItem = useCallback(async (itemId: number) => {
     try {
       await api.items.deleteItem(documentId, itemId);
-      setItems(items.filter((item) => item.id !== itemId));
+      deleteItemFromStore(itemId);
       setAnchorEl(null);
     } catch (err) {
       alert('Greška pri brisanju stavke');
     }
-  }, [documentId, items]);
+  }, [deleteItemFromStore, documentId]);
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, itemId: number) => {
     setAnchorEl(event.currentTarget);
@@ -150,29 +166,23 @@ export const DocumentItemsTable: React.FC<DocumentItemsTableProps> = ({
 
   // CONFLICT RESOLUTION
   const handleConflictRefresh = async () => {
-    if (conflictItemId) {
-      const refreshed = await refreshItem(conflictItemId);
+    if (conflictData?.itemId) {
+      const refreshed = await refreshItem(conflictData.itemId);
       if (refreshed) {
-        setItems(
-          items.map((item) =>
-            item.id === conflictItemId
-              ? refreshed
-              : item
-          )
-        );
+        replaceItem(refreshed as unknown as DocumentLineItem);
       }
     }
-    setConflictDialogOpen(false);
+    closeConflictDialog();
   };
 
   const handleConflictOverwrite = async () => {
-    if (conflictItemId) {
-      const item = items.find((i) => i.id === conflictItemId);
+    if (conflictData?.itemId) {
+      const item = items.find((i) => i.id === conflictData.itemId);
       if (item) {
-        await forceUpdateItem(conflictItemId, 'quantity', item.quantity);
+        await forceUpdateItem(conflictData.itemId, 'quantity', item.quantity);
       }
     }
-    setConflictDialogOpen(false);
+    closeConflictDialog();
   };
 
   // ==========================================
@@ -343,11 +353,12 @@ export const DocumentItemsTable: React.FC<DocumentItemsTableProps> = ({
 
       {/* CONFLICT DIALOG */}
       <ConflictDialog
-        isOpen={conflictDialogOpen}
-        itemId={conflictItemId || undefined}
+        isOpen={showConflictDialog}
+        itemId={conflictData?.itemId || undefined}
+        errorMessage={conflictData?.message}
         onRefresh={handleConflictRefresh}
         onOverwrite={handleConflictOverwrite}
-        onCancel={() => setConflictDialogOpen(false)}
+        onCancel={closeConflictDialog}
       />
     </>
   );

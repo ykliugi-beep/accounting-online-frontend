@@ -165,6 +165,29 @@ export interface DocumentLineItem extends DocumentLineItemCore {
 export type DocumentLineItemList = DocumentLineItem;
 
 // ==========================================
+// DOCUMENT DETAIL TIPOVI
+// ==========================================
+
+export interface DocumentDetails {
+  id: number;
+  documentNumber: string;
+  documentDate: string; // ISO date
+  partnerName?: string;
+  status?: string;
+  currency?: string;
+  totalAmount?: number;
+  notes?: string;
+}
+
+export interface DependentCost {
+  id: number;
+  description: string;
+  amount: number;
+  method?: string;
+  referenceDocument?: string;
+}
+
+// ==========================================
 // API RESPONSE TIPOVI
 // ==========================================
 
