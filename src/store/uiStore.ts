@@ -1,33 +1,73 @@
 import { create } from 'zustand';
+import { devtools } from 'zustand/middleware';
 
-export interface ConflictData {
-  itemId?: number;
-  message?: string;
-  detail?: string;
-}
+// ============================================================================
+// UI STORE STATE
+// ============================================================================
 
-export interface UIStoreState {
+interface UIState {
   isLoading: boolean;
-  showConflictDialog: boolean;
-  conflictData: ConflictData | null;
-  setLoading: (loading: boolean) => void;
-  openConflictDialog: (data: ConflictData) => void;
-  closeConflictDialog: () => void;
+  currentTab: number;
+  sidebarOpen: boolean;
+  theme: 'light' | 'dark';
+  snackbarOpen: boolean;
+  snackbarMessage: string;
+  snackbarSeverity: 'success' | 'error' | 'warning' | 'info';
 }
 
-export const useUIStore = create<UIStoreState>((set) => ({
+interface UIActions {
+  setLoading: (isLoading: boolean) => void;
+  setCurrentTab: (tab: number) => void;
+  toggleSidebar: () => void;
+  setSidebarOpen: (open: boolean) => void;
+  toggleTheme: () => void;
+  showSnackbar: (message: string, severity?: UIState['snackbarSeverity']) => void;
+  hideSnackbar: () => void;
+}
+
+type UIStore = UIState & UIActions;
+
+// ============================================================================
+// INITIAL STATE
+// ============================================================================
+
+const initialState: UIState = {
   isLoading: false,
-  showConflictDialog: false,
-  conflictData: null,
-  setLoading: (loading) => set({ isLoading: loading }),
-  openConflictDialog: (data) =>
-    set({
-      showConflictDialog: true,
-      conflictData: data,
+  currentTab: 0,
+  sidebarOpen: true,
+  theme: 'light',
+  snackbarOpen: false,
+  snackbarMessage: '',
+  snackbarSeverity: 'info',
+};
+
+// ============================================================================
+// ZUSTAND STORE
+// ============================================================================
+
+export const useUIStore = create<UIStore>()(  devtools(
+    (set) => ({
+      ...initialState,
+
+      setLoading: (isLoading) => set({ isLoading }),
+      
+      setCurrentTab: (tab) => set({ currentTab: tab }),
+      
+      toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
+      
+      setSidebarOpen: (open) => set({ sidebarOpen: open }),
+      
+      toggleTheme: () => set((state) => ({ theme: state.theme === 'light' ? 'dark' : 'light' })),
+      
+      showSnackbar: (message, severity = 'info') =>
+        set({
+          snackbarOpen: true,
+          snackbarMessage: message,
+          snackbarSeverity: severity,
+        }),
+      
+      hideSnackbar: () => set({ snackbarOpen: false }),
     }),
-  closeConflictDialog: () =>
-    set({
-      showConflictDialog: false,
-      conflictData: null,
-    }),
-}));
+    { name: 'ui-store' }
+  )
+);

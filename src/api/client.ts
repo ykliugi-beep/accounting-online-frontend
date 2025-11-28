@@ -1,155 +1,105 @@
-import axios, {
-  AxiosInstance,
-  AxiosRequestConfig,
-  AxiosResponse,
-  InternalAxiosRequestConfig,
-} from 'axios';
-import { ApiError, ConflictErrorResponse } from '../types';
+import axios, { AxiosError, AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
+import { ENV } from '../config/env';
+import type { ApiErrorResponse } from '../types/api.types';
 
-/**
- * API Klijent sa ETag konkurentnost podrškom
- * OBAVEZNO: Sve stavke koriste If-Match header sa ETag-om
- */
-
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-const API_VERSION = '/api/v1';
-
-// ==========================================
-// AXIOS INSTANCE
-// ==========================================
+// ============================================================================
+// AXIOS INSTANCE CONFIGURATION
+// ============================================================================
 
 const apiClient: AxiosInstance = axios.create({
-  baseURL: `${API_BASE_URL}${API_VERSION}`,
-  timeout: 30000,
+  baseURL: ENV.API_BASE_URL,
+  timeout: ENV.API_TIMEOUT,
   headers: {
     'Content-Type': 'application/json',
-    Accept: 'application/json',
   },
 });
 
-// ==========================================
-// REQUEST INTERCEPTOR - Dodaj JWT token
-// ==========================================
+// ============================================================================
+// REQUEST INTERCEPTOR - Add Auth Token
+// ============================================================================
 
 apiClient.interceptors.request.use(
-  (config: InternalAxiosRequestConfig) => {
-    const token = localStorage.getItem('auth_token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
+  (config) => {
+    // TODO: Add JWT token from auth store
+    // const token = authStore.getState().token;
+    // if (token) {
+    //   config.headers.Authorization = `Bearer ${token}`;
+    // }
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
-// ==========================================
-// RESPONSE INTERCEPTOR - Ekstrakcija ETag-a
-// ==========================================
+// ============================================================================
+// RESPONSE INTERCEPTOR - Error Handling
+// ============================================================================
 
 apiClient.interceptors.response.use(
-  (response: AxiosResponse) => {
-    // Ekstraktuj ETag iz response header-a i prosleđi u data
-    const eTag = response.headers['etag'];
-    if (eTag && response.data) {
-      // Ako je array, dodaj eTag samo prvom elementu (debug)
-      if (Array.isArray(response.data)) {
-        // Za lookup liste, nemamo ETag
-      } else {
-        response.data.eTag = eTag;
-      }
-    }
-    return response;
-  },
-  (error) => {
-    // Hendluj 409 Conflict posebno
-    if (error.response?.status === 409) {
-      const conflictData: ConflictErrorResponse = error.response.data;
+  (response) => response,
+  (error: AxiosError<ApiErrorResponse>) => {
+    if (error.response) {
+      // Server responded with error status
+      const apiError: ApiErrorResponse = {
+        status: error.response.status,
+        message: error.response.data?.message || error.response.data?.detail || error.message,
+        title: error.response.data?.title,
+        type: error.response.data?.type,
+        errors: error.response.data?.errors,
+        traceId: error.response.data?.traceId,
+      };
+      return Promise.reject(apiError);
+    } else if (error.request) {
+      // Request made but no response
       return Promise.reject({
-        status: 409,
-        message: conflictData.message || 'Stavka je promenjena od drugog korisnika',
-        data: conflictData,
-      } as ApiError);
+        status: 0,
+        message: 'Network error - no response from server',
+      });
+    } else {
+      // Something else happened
+      return Promise.reject({
+        status: -1,
+        message: error.message,
+      });
     }
-
-    // Ostale greške
-    const apiError: ApiError = {
-      status: error.response?.status || 500,
-      message: error.response?.data?.message || error.message || 'API greška',
-      data: error.response?.data,
-    };
-
-    return Promise.reject(apiError);
   }
 );
 
-// ==========================================
-// HELPER FUNKCIJE
-// ==========================================
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
 
 /**
- * Get zahtev sa opsionalnim query parametrima
+ * Build URL with query parameters
  */
-export const apiGet = async <T>(
-  url: string,
-  params?: Record<string, unknown>
-): Promise<T> => {
-  const response = await apiClient.get<T>(url, { params });
-  return response.data;
-};
+export function buildUrl(path: string, params?: Record<string, any>): string {
+  if (!params) return path;
+
+  const queryString = Object.entries(params)
+    .filter(([_, value]) => value !== undefined && value !== null)
+    .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`)
+    .join('&');
+
+  return queryString ? `${path}?${queryString}` : path;
+}
 
 /**
- * Post zahtev - kreiraj novi resurs
+ * Extract ETag from response headers
  */
-export const apiPost = async <T>(
-  url: string,
-  data: unknown,
-  config?: AxiosRequestConfig
-): Promise<T> => {
-  const response = await apiClient.post<T>(url, data, config);
-  return response.data;
-};
+export function extractETag(response: AxiosResponse): string | null {
+  return response.headers['etag'] || null;
+}
 
 /**
- * PATCH zahtev sa If-Match header-om za ETag konkurentnost
- * OBAVEZNO: eTag mora biti prosleđen!
+ * Create config with If-Match header for ETag concurrency
  */
-export const apiPatch = async <T>(
-  url: string,
-  data: unknown,
-  eTag: string
-): Promise<T> => {
-  const response = await apiClient.patch<T>(url, data, {
+export function withETag(etag: string, config?: AxiosRequestConfig): AxiosRequestConfig {
+  return {
+    ...config,
     headers: {
-      'If-Match': `"${eTag}"`, // Navodnici su obavezni!
+      ...config?.headers,
+      'If-Match': etag,
     },
-  });
-  return response.data;
-};
-
-/**
- * Delete zahtev - obriši resurs
- */
-export const apiDelete = async (
-  url: string
-): Promise<void> => {
-  await apiClient.delete(url);
-};
-
-/**
- * Wrapper za 409 Conflict detekciju
- */
-export const handleConflict = (error: unknown): ConflictErrorResponse | null => {
-  if (
-    typeof error === 'object' &&
-    error !== null &&
-    'status' in error &&
-    (error as ApiError).status === 409
-  ) {
-    return (error as ApiError).data as ConflictErrorResponse;
-  }
-  return null;
-};
+  };
+}
 
 export default apiClient;
