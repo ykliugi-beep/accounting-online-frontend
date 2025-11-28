@@ -26,15 +26,23 @@ src/
 ### Prerequisites
 - Node.js 20 LTS
 - npm 10.x
+- Backend API running na `http://localhost:5286`
 
 ### Setup
 ```bash
 # Kloniraj repo
-git clone https://github.com/ykliugi-beep/accounting-online-frontend.git
+git clone https://github.com/sasonaldekant/accounting-online-frontend.git
 cd accounting-online-frontend
 
 # Instaliraj dependencies
 npm install
+
+# Kopiraj .env.example u .env.local
+cp .env.example .env.local
+
+# VAŽNO: Postavi JWT token u .env.local
+# Vidi docs/JWT_TOKEN_SETUP.md za detalje
+vim .env.local  # ili notepad .env.local
 
 # Run development server
 npm run dev
@@ -42,12 +50,38 @@ npm run dev
 
 Aplikacija će biti dostupna na: `http://localhost:3000`
 
+### ⚠️ JWT Token Setup (OBAVEZNO)
+
+Frontend zahteva JWT token za autentifikaciju. **Bez tokena, sve API pozive će vratiti 401 Unauthorized.**
+
+1. Generiši token iz backenda (Swagger ili API endpoint)
+2. Stavi token u `.env.local`:
+   ```env
+   VITE_JWT_TOKEN=your-generated-token-here
+   ```
+3. Restartuj dev server
+
+📖 **Detaljno uputstvo:** [docs/JWT_TOKEN_SETUP.md](docs/JWT_TOKEN_SETUP.md)
+
+## 🔌 Port Konfiguracija
+
+| Servis | Port | URL |
+|--------|------|-----|
+| **Frontend Dev Server** | `3000` | http://localhost:3000 |
+| **Backend API (HTTP)** | `5286` | http://localhost:5286 |
+| **Backend API (HTTPS)** | `7280` | https://localhost:7280 |
+| **Backend Swagger** | `5286` | http://localhost:5286/swagger |
+
+**Vite Proxy:** `/api` requests se automatski proksiraju na `http://localhost:5286`
+
 ## 📋 Faze Implementacije
 
-### ✅ FAZA 0: PRIPREMA (Tekuća)
+### ✅ FAZA 0: PRIPREMA (Završeno)
 - [x] Projektna struktura
-- [ ] Dependency setup
-- [ ] TypeScript konfiguracija
+- [x] Dependency setup
+- [x] TypeScript konfiguracija
+- [x] Port konfiguracija
+- [x] JWT authentication setup
 
 ### 🔄 FAZA 4: FRONTEND - SETUP (1 dan)
 - [ ] Komponente & Routing
@@ -88,6 +122,7 @@ Aplikacija će biti dostupna na: `http://localhost:3000`
 
 ## 📚 Dokumentacija
 
+- [JWT Token Setup](docs/JWT_TOKEN_SETUP.md) ⭐ **Počni ovde**
 - [Kompletan Arhitekturni Dokument](docs/arhitektura-kompletna.md)
 - [TypeScript Tipovi](docs/typescript-csharp-v2-excel-like.md)
 - [Component Hierarhija](docs/component-hierarchy.md)
@@ -162,15 +197,41 @@ npm run test:e2e
 
 ## 🔗 Backend Integration
 
-API Base URL: `http://localhost:5000/api/v1`
+API Base URL: `http://localhost:5286/api/v1`
+
+### Authentication
+- **Method:** JWT Bearer Token
+- **Header:** `Authorization: Bearer <token>`
+- **Setup:** Vidi [JWT_TOKEN_SETUP.md](docs/JWT_TOKEN_SETUP.md)
 
 ### Key Endpoints
 ```
-GET    /partners/combo
-GET    /articles/combo
-POST   /documents
-PATCH  /documents/{id}/items/{itemId}  # sa If-Match header
+GET    /api/v1/partners/combo
+GET    /api/v1/articles/combo
+POST   /api/v1/documents
+PATCH  /api/v1/documents/{id}/items/{itemId}  # sa If-Match header
 ```
+
+## 🐛 Troubleshooting
+
+### Frontend se ne otvara
+- ✅ Proveri da li postoji `index.html` u root-u projekta
+- ✅ Proveri da li je port 3000 slobodan
+- ✅ Pokreni `npm run dev` ponovo
+
+### 401 Unauthorized greške
+- ✅ Proveri da li je JWT token setovan u `.env.local`
+- ✅ Proveri da li je token validan (ne stariji od 24h)
+- ✅ Generiši novi token ako je istekao
+
+### Backend connection refused
+- ✅ Proveri da li backend radi: `http://localhost:5286/swagger`
+- ✅ Proveri portove u `.env.local` (treba da bude 5286, ne 5000)
+- ✅ Proveri da li je CORS omogućen na backendu
+
+### Vite ne startuje
+- ✅ Obriši `node_modules` i `package-lock.json`, ponovo `npm install`
+- ✅ Proveri Node verziju: `node --version` (treba 20.x LTS)
 
 ## 📄 License
 MIT

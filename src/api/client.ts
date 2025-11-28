@@ -20,11 +20,12 @@ const apiClient: AxiosInstance = axios.create({
 
 apiClient.interceptors.request.use(
   (config) => {
-    // TODO: Add JWT token from auth store
-    // const token = authStore.getState().token;
-    // if (token) {
-    //   config.headers.Authorization = `Bearer ${token}`;
-    // }
+    // Use JWT token from environment for testing
+    // In production, this should come from auth store/context
+    const token = ENV.JWT_TOKEN;
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
     return config;
   },
   (error) => Promise.reject(error)
