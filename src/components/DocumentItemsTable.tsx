@@ -33,7 +33,7 @@ import {
 import { DocumentLineItem, DocumentLineItemCreateDto } from '../types';
 import { useAutoSaveItems } from '../hooks/useAutoSaveItems';
 import { useArticles, useTaxRates } from '../hooks/useCombos';
-import { api } from '../api/endpoints';
+import { api } from '../api';  // FIXED: Import from index.ts instead of endpoints.ts
 import EditableCell, { CellNavigationDirection } from './EditableCell';
 import ConflictDialog from './ConflictDialog';
 import { useDocumentStore, useUIStore } from '../store';
@@ -102,7 +102,7 @@ export const DocumentItemsTable: React.FC<DocumentItemsTableProps> = ({
     try {
       setIsTableLoading(true);
       setError(null);
-      const loadedItems = await api.items.getItems(documentId);
+      const loadedItems = await api.lineItem.list(documentId);  // FIXED: api.lineItem.list
       setItems(loadedItems);
       initializeETags(loadedItems);
       lastKnownItemsRef.current = new Map(
@@ -174,7 +174,7 @@ export const DocumentItemsTable: React.FC<DocumentItemsTableProps> = ({
         handledErrorItemsRef.current.delete(state.id);
       }
     });
-  }, [autoSaveMap, refreshItem, items]);
+  }, [autoSaveMap, refreshItem, items, setItems]);
 
   const handleValueChange = useCallback(
     (itemId: number, field: string, value: string | number) => {
@@ -193,7 +193,7 @@ export const DocumentItemsTable: React.FC<DocumentItemsTableProps> = ({
       );
       debouncedSave(itemId, field, value);
     },
-    [debouncedSave]
+    [debouncedSave, setItems]
   );
 
   const handleAddItem = useCallback(async () => {
@@ -205,7 +205,7 @@ export const DocumentItemsTable: React.FC<DocumentItemsTableProps> = ({
     };
 
     try {
-      const created = await api.items.createItem(documentId, newItem);
+      const created = await api.lineItem.create(documentId, newItem);  // FIXED: api.lineItem.create
       setItems((prev) => [...prev, created as unknown as DocumentLineItem]);
       lastKnownItemsRef.current.set(
         created.id,
@@ -214,12 +214,12 @@ export const DocumentItemsTable: React.FC<DocumentItemsTableProps> = ({
     } catch (err) {
       alert('Greška pri kreiranju stavke');
     }
-  }, [documentId]);
+  }, [documentId, setItems]);
 
   const handleDeleteItem = useCallback(
     async (itemId: number) => {
       try {
-        await api.items.deleteItem(documentId, itemId);
+        await api.lineItem.delete(documentId, itemId);  // FIXED: api.lineItem.delete
         setItems((prev) => prev.filter((item) => item.id !== itemId));
         lastKnownItemsRef.current.delete(itemId);
         setAnchorEl(null);
@@ -227,7 +227,7 @@ export const DocumentItemsTable: React.FC<DocumentItemsTableProps> = ({
         alert('Greška pri brisanju stavke');
       }
     },
-    [documentId]
+    [documentId, setItems]
   );
 
   const handleMenuOpen = useCallback((event: React.MouseEvent<HTMLElement>, itemId: number) => {
@@ -240,34 +240,34 @@ export const DocumentItemsTable: React.FC<DocumentItemsTableProps> = ({
   };
 
   const handleConflictRefresh = useCallback(async () => {
-    if (conflictItemId) {
-      const refreshed = await refreshItem(conflictItemId);
+    if (conflictData?.itemId) {
+      const refreshed = await refreshItem(conflictData.itemId);
       if (refreshed) {
         setItems((prev) =>
           prev.map((item) =>
-            item.id === conflictItemId
+            item.id === conflictData.itemId
               ? (refreshed as unknown as DocumentLineItem)
               : item
           )
         );
         lastKnownItemsRef.current.set(
-          conflictItemId,
+          conflictData.itemId,
           refreshed as unknown as DocumentLineItem
         );
       }
     }
-    setConflictDialogOpen(false);
-  }, [conflictItemId, refreshItem]);
+    closeConflictDialog();
+  }, [conflictData, refreshItem, setItems, closeConflictDialog]);
 
   const handleConflictOverwrite = useCallback(async () => {
-    if (conflictItemId) {
-      const item = items.find((i) => i.id === conflictItemId);
+    if (conflictData?.itemId) {
+      const item = items.find((i) => i.id === conflictData.itemId);
       if (item) {
         await forceUpdateItem(conflictData.itemId, 'quantity', item.quantity);
       }
     }
-    setConflictDialogOpen(false);
-  }, [conflictItemId, forceUpdateItem, items]);
+    closeConflictDialog();
+  }, [conflictData, forceUpdateItem, items, closeConflictDialog]);
 
   const articleOptions = useMemo(
     () =>
