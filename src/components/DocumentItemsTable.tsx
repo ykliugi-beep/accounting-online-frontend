@@ -55,11 +55,28 @@ const getNavigationKey = (rowIndex: number, columnIndex: number) =>
 export const DocumentItemsTable: React.FC<DocumentItemsTableProps> = ({
   documentId,
 }) => {
-  const [items, setItems] = useState<DocumentLineItem[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  // ==========================================
+  // STATE
+  // ==========================================
+
+  const { items, setItems, addItem: addItemToStore, deleteItem: deleteItemFromStore, replaceItem } =
+    useDocumentStore((state) => ({
+      items: state.items,
+      setItems: state.setItems,
+      addItem: state.addItem,
+      deleteItem: state.deleteItem,
+      replaceItem: state.replaceItem,
+    }));
+  const { showConflictDialog, conflictData, openConflictDialog, closeConflictDialog } = useUIStore((state) => ({
+    showConflictDialog: state.showConflictDialog,
+    conflictData: state.conflictData,
+    openConflictDialog: state.openConflictDialog,
+    closeConflictDialog: state.closeConflictDialog,
+  }));
   const [error, setError] = useState<string | null>(null);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedItemId, setSelectedItemId] = useState<number | null>(null);
+  const [isTableLoading, setIsTableLoading] = useState(false);
 
   const focusRefs = useRef<Map<string, HTMLElement>>(new Map());
   const listRef = useRef<FixedSizeListType>(null);
@@ -83,7 +100,7 @@ export const DocumentItemsTable: React.FC<DocumentItemsTableProps> = ({
 
   const loadItems = useCallback(async () => {
     try {
-      setLoading(true);
+      setIsTableLoading(true);
       setError(null);
       const loadedItems = await api.items.getItems(documentId);
       setItems(loadedItems);
@@ -100,9 +117,9 @@ export const DocumentItemsTable: React.FC<DocumentItemsTableProps> = ({
           : 'Greška pri učitavanju stavki';
       setError(message);
     } finally {
-      setLoading(false);
+      setIsTableLoading(false);
     }
-  }, [documentId, initializeETags, setItems, setLoading]);
+  }, [documentId, initializeETags, setItems]);
 
   useEffect(() => {
     loadItems();
@@ -545,7 +562,7 @@ export const DocumentItemsTable: React.FC<DocumentItemsTableProps> = ({
   const rows = table.getRowModel().rows;
   const listHeight = Math.min(Math.max(rows.length, 1) * ROW_HEIGHT, 400);
 
-  if (isLoading || articlesLoading || taxRatesLoading) {
+  if (isTableLoading || articlesLoading || taxRatesLoading) {
     return (
       <Box display="flex" justifyContent="center" p={3}>
         <CircularProgress />

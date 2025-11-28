@@ -44,14 +44,6 @@ export const DocumentForm: React.FC<DocumentFormProps> = ({
   const currency = document?.currency ?? 'RSD';
 
   const renderContent = () => {
-    if (isLoading) {
-      return (
-        <Box sx={{ py: 4 }}>
-          <Skeleton variant="rectangular" height={160} />
-        </Box>
-      );
-    }
-
     switch (activeTab) {
       case 'items':
         return <DocumentItemsTable documentId={documentId} />;
@@ -75,10 +67,20 @@ export const DocumentForm: React.FC<DocumentFormProps> = ({
       <Box display="flex" justifyContent="space-between" flexWrap="wrap" gap={2}>
         <Box>
           <Typography variant="h5" gutterBottom>
-            Dokument #{document?.documentNumber ?? documentId}
+            {isLoading ? (
+              <Skeleton width={220} />
+            ) : (
+              <>Dokument #{document?.documentNumber ?? documentId}</>
+            )}
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            {document?.partnerName ?? 'Nepoznat partner'} · {document?.status ?? 'Draft'}
+            {isLoading ? (
+              <Skeleton width={180} />
+            ) : (
+              <>
+                {document?.partnerName ?? 'Nepoznat partner'} · {document?.status ?? 'Draft'}
+              </>
+            )}
           </Typography>
         </Box>
 
@@ -86,16 +88,22 @@ export const DocumentForm: React.FC<DocumentFormProps> = ({
           <Typography variant="subtitle2" color="text.secondary">
             Ukupno stavki
           </Typography>
-          <Typography variant="h6">{summary.itemsCount}</Typography>
+          <Typography variant="h6">
+            {isLoading ? <Skeleton width={40} sx={{ display: 'inline-block' }} /> : summary.itemsCount}
+          </Typography>
           <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 1 }}>
             Vrednost dokumenta
           </Typography>
           <Typography variant="h6">
-            {summary.totalAmount.toLocaleString('sr-RS', {
-              style: 'currency',
-              currency,
-              minimumFractionDigits: 2,
-            })}
+            {isLoading ? (
+              <Skeleton width={140} sx={{ display: 'inline-block' }} />
+            ) : (
+              summary.totalAmount.toLocaleString('sr-RS', {
+                style: 'currency',
+                currency,
+                minimumFractionDigits: 2,
+              })
+            )}
           </Typography>
         </Box>
       </Box>
