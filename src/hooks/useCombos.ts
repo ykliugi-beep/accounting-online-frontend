@@ -12,11 +12,11 @@ import {
   CostDistributionMethodCombo,
   CostArticleCombo,
 } from '../types';
-import { api } from '../api/endpoints';
+import { api } from '../api';  // FIXED: Import from index.ts instead of endpoints.ts
 
 /**
  * Custom hook za sve 11 Stored Procedures
- * Koristi React Query za keširanje i automatsku invalidaciju
+ * Koristi React Query za kesiranje i automatsku invalidaciju
  */
 
 // ==========================================
@@ -47,7 +47,7 @@ const queryKeys = {
 export const usePartners = (): UseQueryResult<PartnerCombo[], unknown> => {
   return useQuery({
     queryKey: queryKeys.partners,
-    queryFn: async () => api.lookups.getPartners(),
+    queryFn: async () => api.lookup.getPartners(),
     staleTime: 5 * 60 * 1000, // 5 minuta
     gcTime: 30 * 60 * 1000, // 30 minuta (staro cacheTime)
   });
@@ -61,14 +61,14 @@ export const useOrgUnits = (
 ): UseQueryResult<OrgUnitCombo[], unknown> => {
   return useQuery({
     queryKey: queryKeys.orgUnits(docTypeId),
-    queryFn: async () => api.lookups.getOrgUnits(docTypeId),
+    queryFn: async () => api.lookup.getOrganizationalUnits(docTypeId),
     staleTime: 5 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
   });
 };
 
 /**
- * SP 3: Načini oporezivanja
+ * SP 3: Nacini oporezivanja
  */
 export const useTaxationMethods = (): UseQueryResult<
   TaxationMethodCombo[],
@@ -76,7 +76,7 @@ export const useTaxationMethods = (): UseQueryResult<
 > => {
   return useQuery({
     queryKey: queryKeys.taxationMethods,
-    queryFn: async () => api.lookups.getTaxationMethods(),
+    queryFn: async () => api.lookup.getTaxationMethods(),
     staleTime: 10 * 60 * 1000,
     gcTime: 60 * 60 * 1000,
   });
@@ -88,7 +88,7 @@ export const useTaxationMethods = (): UseQueryResult<
 export const useReferents = (): UseQueryResult<ReferentCombo[], unknown> => {
   return useQuery({
     queryKey: queryKeys.referents,
-    queryFn: async () => api.lookups.getReferents(),
+    queryFn: async () => api.lookup.getReferents(),
     staleTime: 10 * 60 * 1000,
     gcTime: 60 * 60 * 1000,
   });
@@ -100,7 +100,7 @@ export const useReferents = (): UseQueryResult<ReferentCombo[], unknown> => {
 export const useDocumentsND = (): UseQueryResult<DocumentNDCombo[], unknown> => {
   return useQuery({
     queryKey: queryKeys.documentsND,
-    queryFn: async () => api.lookups.getDocumentsND(),
+    queryFn: async () => api.lookup.getReferenceDocuments('ND'),
     staleTime: 5 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
   });
@@ -112,7 +112,7 @@ export const useDocumentsND = (): UseQueryResult<DocumentNDCombo[], unknown> => 
 export const useTaxRates = (): UseQueryResult<TaxRateCombo[], unknown> => {
   return useQuery({
     queryKey: queryKeys.taxRates,
-    queryFn: async () => api.lookups.getTaxRates(),
+    queryFn: async () => api.lookup.getTaxRates(),
     staleTime: 10 * 60 * 1000,
     gcTime: 60 * 60 * 1000,
   });
@@ -124,41 +124,41 @@ export const useTaxRates = (): UseQueryResult<TaxRateCombo[], unknown> => {
 export const useArticles = (): UseQueryResult<ArticleCombo[], unknown> => {
   return useQuery({
     queryKey: queryKeys.articles,
-    queryFn: async () => api.lookups.getArticles(),
+    queryFn: async () => api.lookup.getArticles(),
     staleTime: 5 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
   });
 };
 
 /**
- * SP 8: Troškovi za dokument
+ * SP 8: Troskovi za dokument
  */
 export const useDocumentCosts = (
   documentId: number
 ): UseQueryResult<DocumentCostsListDto[], unknown> => {
   return useQuery({
     queryKey: queryKeys.documentCosts(documentId),
-    queryFn: async () => api.lookups.getDocumentCosts(documentId),
+    queryFn: async () => api.cost.list(documentId),
     staleTime: 2 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
-    enabled: !!documentId, // Samo ako je documentId prosleđen
+    enabled: !!documentId, // Samo ako je documentId proslezen
   });
 };
 
 /**
- * SP 9: Vrste troškova
+ * SP 9: Vrste troskova
  */
 export const useCostTypes = (): UseQueryResult<CostTypeCombo[], unknown> => {
   return useQuery({
     queryKey: queryKeys.costTypes,
-    queryFn: async () => api.lookups.getCostTypes(),
+    queryFn: async () => api.lookup.getCostTypes(),
     staleTime: 10 * 60 * 1000,
     gcTime: 60 * 60 * 1000,
   });
 };
 
 /**
- * SP 10: Načini deljenja troškova (1, 2, 3)
+ * SP 10: Nacini deljenja troskova (1, 2, 3)
  */
 export const useCostDistributionMethods = (): UseQueryResult<
   CostDistributionMethodCombo[],
@@ -166,21 +166,21 @@ export const useCostDistributionMethods = (): UseQueryResult<
 > => {
   return useQuery({
     queryKey: queryKeys.costDistributionMethods,
-    queryFn: async () => api.lookups.getCostDistributionMethods(),
+    queryFn: async () => api.lookup.getCostDistributionMethods(),
     staleTime: Infinity, // Nikad se ne menja
     gcTime: Infinity,
   });
 };
 
 /**
- * SP 11: Artikli iz stavki dokumenta za raspodelu troškova
+ * SP 11: Artikli iz stavki dokumenta za raspodelu troskova
  */
 export const useCostArticles = (
   documentId: number
 ): UseQueryResult<CostArticleCombo[], unknown> => {
   return useQuery({
     queryKey: queryKeys.costArticles(documentId),
-    queryFn: async () => api.lookups.getCostArticles(documentId),
+    queryFn: async () => api.lineItem.list(documentId),
     staleTime: 2 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
     enabled: !!documentId,
@@ -220,15 +220,15 @@ export const useAllCombos = (
         costTypes,
         costDistributionMethods,
       ] = await Promise.all([
-        api.lookups.getPartners(),
-        api.lookups.getOrgUnits(docTypeId),
-        api.lookups.getTaxationMethods(),
-        api.lookups.getReferents(),
-        api.lookups.getDocumentsND(),
-        api.lookups.getTaxRates(),
-        api.lookups.getArticles(),
-        api.lookups.getCostTypes(),
-        api.lookups.getCostDistributionMethods(),
+        api.lookup.getPartners(),
+        api.lookup.getOrganizationalUnits(docTypeId),
+        api.lookup.getTaxationMethods(),
+        api.lookup.getReferents(),
+        api.lookup.getReferenceDocuments('ND'),
+        api.lookup.getTaxRates(),
+        api.lookup.getArticles(),
+        api.lookup.getCostTypes(),
+        api.lookup.getCostDistributionMethods(),
       ]);
 
       return {

@@ -7,17 +7,17 @@ import {
   AutoSaveStateMap,
   ConflictResolutionAction,
 } from '../types';
-import { api, handleConflict } from '../api/endpoints';
+import { api } from '../api';  // FIXED: Import from index.ts instead of endpoints.ts
 
 /**
- * KLJUČNI HOOK za autosave sa ETag konkurentnosti
+ * KLJUCwNI HOOK za autosave sa ETag konkurentnosti
  *
  * WORKFLOW:
- * 1. User unese vrednost u ćeliju
+ * 1. User unese vrednost u celiju
  * 2. Hook postavi status na 'saving' sa 800ms debounce
- * 3. Pošlje PATCH sa If-Match header-om (ETag)
+ * 3. Posalje PATCH sa If-Match header-om (ETag)
  * 4. Ako OK (200) -> 'saved' status, novi ETag
- * 5. Ako 409 Conflict -> prikaži ConflictDialog
+ * 5. Ako 409 Conflict -> prikazi ConflictDialog
  * 6. User odabere 'refresh' ili 'overwrite'
  * 7. Nastavi sa novim ETag-om
  */
@@ -25,6 +25,17 @@ import { api, handleConflict } from '../api/endpoints';
 interface UseAutoSaveItemsProps {
   documentId: number;
   onConflict?: (itemId: number, action: ConflictResolutionAction) => void;
+}
+
+// Helper function to handle 409 Conflict errors
+function handleConflict(error: any): { message: string; currentETag?: string } | null {
+  if (error?.status === 409 || error?.response?.status === 409) {
+    return {
+      message: error?.message || 'Dokument je promenjen od strane drugog korisnika',
+      currentETag: error?.response?.headers?.etag?.replace(/"/g, ''),
+    };
+  }
+  return null;
 }
 
 export const useAutoSaveItems = ({
@@ -81,8 +92,8 @@ export const useAutoSaveItems = ({
               : value,
         };
 
-        // KRITIČNO: Prosleđi If-Match sa trenutnim ETag-om
-        const response = await api.items.updateItem(
+        // KRITICNO: Prosled If-Match sa trenutnim ETag-om
+        const response = await api.lineItem.patch(
           documentId,
           itemId,
           patchData,
@@ -135,16 +146,16 @@ export const useAutoSaveItems = ({
             },
           }));
 
-          // Pozovi callback za 409 Conflict - prikaži ConflictDialog
+          // Pozovi callback za 409 Conflict - prikazi ConflictDialog
           if (onConflict) {
             onConflict(itemId, 'refresh');
           }
         } else {
-          // Ostale greške
+          // Ostale greske
           const errorMessage =
             typeof error === 'object' && error !== null && 'message' in error
               ? (error as { message: string }).message
-              : 'Greška pri čuvanju';
+              : 'Greska pri cuvanju';
 
           setAutoSaveMap((prev) => ({
             ...prev,
@@ -167,7 +178,7 @@ export const useAutoSaveItems = ({
 
   const debouncedSave = useCallback(
     (itemId: number, field: string, value: number | string): void => {
-      // Očisti prethodni timeout za ovu stavku
+      // Ocisti prethodni timeout za ovu stavku
       const existingTimer = debounceTimersRef.current.get(itemId);
       if (existingTimer) {
         clearTimeout(existingTimer);
@@ -208,7 +219,7 @@ export const useAutoSaveItems = ({
   const refreshItem = useCallback(
     async (itemId: number): Promise<DocumentLineItem | null> => {
       try {
-        const item = await api.items.getItem(documentId, itemId);
+        const item = await api.lineItem.get(documentId, itemId);
         eTagsRef.current.set(itemId, item.eTag);
         return item;
       } catch (error) {
@@ -220,7 +231,7 @@ export const useAutoSaveItems = ({
   );
 
   // ==========================================
-  // CLEANUP - očisti timeout-e
+  // CLEANUP - ocisti timeout-e
   // ==========================================
 
   useEffect(() => {
