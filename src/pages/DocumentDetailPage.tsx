@@ -3,7 +3,7 @@ import { Box, Container, Typography } from '@mui/material';
 import { DocumentForm } from '../components/Document/DocumentForm';
 import { useDocumentStore, useUIStore } from '../store';
 
-const DocumentDetailPage: React.FC = () => {
+export const DocumentDetailPage: React.FC = () => {
   const documentId = 1;
 
   const {
@@ -87,5 +87,3 @@ const DocumentDetailPage: React.FC = () => {
     </Container>
   );
 };
-
-export default DocumentDetailPage;

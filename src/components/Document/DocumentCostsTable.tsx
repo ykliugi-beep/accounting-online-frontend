@@ -36,13 +36,17 @@ import {
 } from '@mui/icons-material';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../api';
-import { useCombos } from '../../hooks/useCombos';
+import { useAllCombos } from '../../hooks/useCombos';
 import { formatCurrency, formatDate } from '../../utils';
 import type {
   DocumentCostDto,
   CreateDocumentCostDto,
   CreateDocumentCostItemDto,
   CostItemVatDto,
+  PartnerComboDto,
+  CostTypeComboDto,
+  CostDistributionMethodComboDto,
+  TaxRateComboDto,
 } from '../../types/api.types';
 
 interface DocumentCostsTableProps {
@@ -56,7 +60,11 @@ export const DocumentCostsTable: React.FC<DocumentCostsTableProps> = ({ document
   const [selectedCostId, setSelectedCostId] = useState<number | null>(null);
   const [itemDialogOpen, setItemDialogOpen] = useState(false);
 
-  const { partners, costTypes, costDistributionMethods, taxRates } = useCombos();
+  const { data: combosData } = useAllCombos('UR');
+  const partners = combosData?.partners;
+  const costTypes = combosData?.costTypes;
+  const costDistributionMethods = combosData?.costDistributionMethods;
+  const taxRates = combosData?.taxRates;
 
   // Load costs
   const { data: costs, isLoading } = useQuery({
@@ -171,9 +179,9 @@ interface CostCardProps {
   documentId: number;
   onDelete: () => void;
   onDistribute: () => void;
-  costTypes: any[];
-  costDistributionMethods: any[];
-  taxRates: any[];
+  costTypes: CostTypeComboDto[];
+  costDistributionMethods: CostDistributionMethodComboDto[];
+  taxRates: TaxRateComboDto[];
 }
 
 const CostCard: React.FC<CostCardProps> = ({
@@ -375,7 +383,7 @@ interface CreateCostDialogProps {
   open: boolean;
   onClose: () => void;
   onSubmit: (data: CreateDocumentCostDto) => void;
-  partners: any[];
+  partners: PartnerComboDto[];
   isLoading: boolean;
 }
 
@@ -415,7 +423,7 @@ const CreateCostDialog: React.FC<CreateCostDialogProps> = ({
             <Autocomplete
               options={partners}
               getOptionLabel={(option) => `${option.code} - ${option.name}`}
-              value={partners.find((p) => p.id === formData.partnerId) || null}
+              value={partners.find((p: PartnerComboDto) => p.id === formData.partnerId) || null}
               onChange={(_, value) =>
                 setFormData({ ...formData, partnerId: value?.id || 0 })
               }
@@ -473,9 +481,9 @@ interface CreateCostItemDialogProps {
   open: boolean;
   onClose: () => void;
   onSubmit: (data: CreateDocumentCostItemDto) => void;
-  costTypes: any[];
-  costDistributionMethods: any[];
-  taxRates: any[];
+  costTypes: CostTypeComboDto[];
+  costDistributionMethods: CostDistributionMethodComboDto[];
+  taxRates: TaxRateComboDto[];
   isLoading: boolean;
 }
 
@@ -533,7 +541,7 @@ const CreateCostItemDialog: React.FC<CreateCostItemDialogProps> = ({
             <Autocomplete
               options={costTypes}
               getOptionLabel={(option) => option.name}
-              value={costTypes.find((ct) => ct.id === formData.costTypeId) || null}
+              value={costTypes.find((ct: CostTypeComboDto) => ct.id === formData.costTypeId) || null}
               onChange={(_, value) =>
                 setFormData({ ...formData, costTypeId: value?.id || 0 })
               }
@@ -547,7 +555,7 @@ const CreateCostItemDialog: React.FC<CreateCostItemDialogProps> = ({
               options={costDistributionMethods}
               getOptionLabel={(option) => option.name}
               value={
-                costDistributionMethods.find((m) => m.id === formData.distributionMethodId) || null
+                costDistributionMethods.find((m: CostDistributionMethodComboDto) => m.id === formData.distributionMethodId) || null
               }
               onChange={(_, value) =>
                 setFormData({ ...formData, distributionMethodId: value?.id || 0 })
@@ -596,7 +604,7 @@ const CreateCostItemDialog: React.FC<CreateCostItemDialogProps> = ({
                     size="small"
                     options={taxRates}
                     getOptionLabel={(option) => `${option.id} - ${option.name} (${option.percentage}%)`}
-                    value={taxRates.find((tr) => tr.id === vat.taxRateId) || null}
+                    value={taxRates.find((tr: TaxRateComboDto) => tr.id === vat.taxRateId) || null}
                     onChange={(_, value) => {
                       const updated = [...vatRows];
                       updated[index].taxRateId = value?.id || '';
