@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import {
   Box,
   Grid,
@@ -249,7 +249,7 @@ export const DocumentHeader: React.FC<DocumentHeaderProps> = ({ document, onChan
             }
             loading={combosLoading}
             value={null} // TODO: Povezati sa backend poljem
-            onChange={(_, value) => {
+            onChange={() => {
               // TODO: Implementirati kada backend podrži
             }}
             renderInput={(params) => (
