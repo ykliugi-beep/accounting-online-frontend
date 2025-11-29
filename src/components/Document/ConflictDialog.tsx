@@ -11,7 +11,8 @@ import {
   Alert,
   CircularProgress,
 } from '@mui/material';
-import { ConflictResolutionAction } from '../../types';
+
+type ConflictResolutionAction = 'refresh' | 'overwrite' | 'cancel';
 
 interface ConflictDialogProps {
   isOpen: boolean;
@@ -20,7 +21,6 @@ interface ConflictDialogProps {
   onRefresh: () => Promise<void>;
   onOverwrite: () => Promise<void>;
   onCancel: () => void;
-  isLoading?: boolean;
 }
 
 /**
@@ -42,7 +42,6 @@ export const ConflictDialog: React.FC<ConflictDialogProps> = ({
   onRefresh,
   onOverwrite,
   onCancel,
-  isLoading = false,
 }) => {
   const [selectedAction, setSelectedAction] = useState<ConflictResolutionAction | null>(null);
   const [actionLoading, setActionLoading] = useState(false);

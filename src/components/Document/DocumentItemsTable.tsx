@@ -271,11 +271,6 @@ export const DocumentItemsTable: React.FC<DocumentItemsTableProps> = ({
     [articles]
   );
 
-  const taxRateMap = useMemo(
-    () => new Map(taxRates?.map((rate) => [rate.id, rate.percentage]) ?? []),
-    [taxRates]
-  );
-
   const registerCellRef = useCallback(
     (rowIndex: number, columnIndex: number, element: HTMLElement | null) => {
       const key = getNavigationKey(rowIndex, columnIndex);
@@ -360,7 +355,7 @@ export const DocumentItemsTable: React.FC<DocumentItemsTableProps> = ({
     [findFocusableColumn, focusCell, items.length]
   );
 
-  const columns = useMemo<ColumnDef<DocumentLineItemDto>[]>(() => {
+  const columns = useMemo(() => {
     return [
       columnHelper.display({
         id: 'id',
@@ -471,7 +466,7 @@ export const DocumentItemsTable: React.FC<DocumentItemsTableProps> = ({
       columnHelper.display({
         id: 'margin',
         header: () => 'Marža',
-        cell: ({ row }) => (
+        cell: () => (
           <Typography variant="body2" align="right">
             -
           </Typography>
