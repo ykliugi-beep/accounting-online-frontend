@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
+import type { ConflictData } from '../types';
 
 // ============================================================================
 // UI STORE STATE
@@ -13,6 +14,10 @@ interface UIState {
   snackbarOpen: boolean;
   snackbarMessage: string;
   snackbarSeverity: 'success' | 'error' | 'warning' | 'info';
+  
+  // Conflict dialog state
+  showConflictDialog: boolean;
+  conflictData: ConflictData | null;
 }
 
 interface UIActions {
@@ -23,6 +28,10 @@ interface UIActions {
   toggleTheme: () => void;
   showSnackbar: (message: string, severity?: UIState['snackbarSeverity']) => void;
   hideSnackbar: () => void;
+  
+  // Conflict dialog actions
+  openConflictDialog: (data: ConflictData) => void;
+  closeConflictDialog: () => void;
 }
 
 type UIStore = UIState & UIActions;
@@ -39,6 +48,8 @@ const initialState: UIState = {
   snackbarOpen: false,
   snackbarMessage: '',
   snackbarSeverity: 'info',
+  showConflictDialog: false,
+  conflictData: null,
 };
 
 // ============================================================================
@@ -67,6 +78,19 @@ export const useUIStore = create<UIStore>()(  devtools(
         }),
       
       hideSnackbar: () => set({ snackbarOpen: false }),
+      
+      // Conflict dialog actions
+      openConflictDialog: (data) =>
+        set({
+          showConflictDialog: true,
+          conflictData: data,
+        }),
+      
+      closeConflictDialog: () =>
+        set({
+          showConflictDialog: false,
+          conflictData: null,
+        }),
     }),
     { name: 'ui-store' }
   )
