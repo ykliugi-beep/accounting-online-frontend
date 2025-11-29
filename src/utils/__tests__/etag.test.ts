@@ -7,21 +7,21 @@ describe('etag utils', () => {
     it('should extract etag from headers', () => {
       const response = {
         headers: { etag: '"abc123"' },
-      } as AxiosResponse;
+      } as unknown as AxiosResponse;
       expect(extractETag(response)).toBe('abc123');
     });
 
     it('should handle etag without quotes', () => {
       const response = {
         headers: { etag: 'abc123' },
-      } as AxiosResponse;
+      } as unknown as AxiosResponse;
       expect(extractETag(response)).toBe('abc123');
     });
 
     it('should handle case-insensitive header', () => {
       const response = {
         headers: { ETag: '"abc123"' },
-      } as AxiosResponse;
+      } as unknown as AxiosResponse;
       expect(extractETag(response)).toBe('abc123');
     });
 
