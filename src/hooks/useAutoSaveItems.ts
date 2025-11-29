@@ -1,30 +1,29 @@
 import { useCallback, useRef, useEffect, useState } from 'react';
 import {
-  DocumentLineItem,
-  DocumentLineItemPatchDto,
-  AutoSaveStatus,
-  ItemAutoSaveState,
+  DocumentLineItemDto,
+  PatchDocumentLineItemDto,
+  SaveStatus,
+  ItemSaveState,
   AutoSaveStateMap,
-  ConflictResolutionAction,
 } from '../types';
-import { api } from '../api';  // FIXED: Import from index.ts instead of endpoints.ts
+import { api } from '../api';
 
 /**
- * KLJUCwNI HOOK za autosave sa ETag konkurentnosti
+ * KLJUČNI HOOK za autosave sa ETag konkurentnosti
  *
  * WORKFLOW:
  * 1. User unese vrednost u celiju
  * 2. Hook postavi status na 'saving' sa 800ms debounce
- * 3. Posalje PATCH sa If-Match header-om (ETag)
+ * 3. Pošalje PATCH sa If-Match header-om (ETag)
  * 4. Ako OK (200) -> 'saved' status, novi ETag
- * 5. Ako 409 Conflict -> prikazi ConflictDialog
+ * 5. Ako 409 Conflict -> prikaži ConflictDialog
  * 6. User odabere 'refresh' ili 'overwrite'
  * 7. Nastavi sa novim ETag-om
  */
 
 interface UseAutoSaveItemsProps {
   documentId: number;
-  onConflict?: (itemId: number, action: ConflictResolutionAction) => void;
+  onConflict?: (itemId: number) => void;
 }
 
 // Helper function to handle 409 Conflict errors
@@ -54,10 +53,10 @@ export const useAutoSaveItems = ({
   // INICIJALIZACIJA eTags
   // ==========================================
 
-  const initializeETags = useCallback((items: DocumentLineItem[]) => {
+  const initializeETags = useCallback((items: DocumentLineItemDto[]) => {
     eTagsRef.current.clear();
     items.forEach((item) => {
-      eTagsRef.current.set(item.id, item.eTag);
+      eTagsRef.current.set(item.id, item.etag);
     });
   }, []);
 
@@ -77,22 +76,21 @@ export const useAutoSaveItems = ({
         ...prev,
         [itemId]: {
           id: itemId,
-          status: 'saving',
-          eTag: currentETag,
+          status: 'saving' as SaveStatus,
+          error: null,
+          etag: currentETag,
         },
       }));
 
       try {
         // Konvertuj field u API format (camelCase -> camelCase)
-        const patchData: DocumentLineItemPatchDto = {
-          [field]: field.includes('Price')
+        const patchData: PatchDocumentLineItemDto = {
+          [field]: field.includes('Price') || field.includes('discount') || field.includes('quantity')
             ? parseFloat(String(value))
-            : field.includes('Quantity')
-              ? parseFloat(String(value))
-              : value,
-        };
+            : value,
+        } as PatchDocumentLineItemDto;
 
-        // KRITICNO: Prosled If-Match sa trenutnim ETag-om
+        // KRITIČNO: Prosledi If-Match sa trenutnim ETag-om
         const response = await api.lineItem.patch(
           documentId,
           itemId,
@@ -101,7 +99,7 @@ export const useAutoSaveItems = ({
         );
 
         // Ekstraktuj novi ETag iz response-a
-        const newETag = response.eTag;
+        const newETag = response.etag;
         eTagsRef.current.set(itemId, newETag);
 
         // Setuj status na 'saved'
@@ -109,9 +107,9 @@ export const useAutoSaveItems = ({
           ...prev,
           [itemId]: {
             id: itemId,
-            status: 'saved',
-            eTag: newETag,
-            lastSavedAt: new Date().toISOString(),
+            status: 'saved' as SaveStatus,
+            error: null,
+            etag: newETag,
           },
         }));
 
@@ -121,7 +119,7 @@ export const useAutoSaveItems = ({
             ...prev,
             [itemId]: {
               ...prev[itemId],
-              status: 'idle',
+              status: 'idle' as SaveStatus,
             },
           }));
         }, 2000);
@@ -140,30 +138,30 @@ export const useAutoSaveItems = ({
             ...prev,
             [itemId]: {
               id: itemId,
-              status: 'error',
+              status: 'error' as SaveStatus,
               error: conflictData.message,
-              eTag: conflictData.currentETag || currentETag,
+              etag: conflictData.currentETag || currentETag,
             },
           }));
 
-          // Pozovi callback za 409 Conflict - prikazi ConflictDialog
+          // Pozovi callback za 409 Conflict - prikaži ConflictDialog
           if (onConflict) {
-            onConflict(itemId, 'refresh');
+            onConflict(itemId);
           }
         } else {
-          // Ostale greske
+          // Ostale greške
           const errorMessage =
             typeof error === 'object' && error !== null && 'message' in error
               ? (error as { message: string }).message
-              : 'Greska pri cuvanju';
+              : 'Greška pri čuvanju';
 
           setAutoSaveMap((prev) => ({
             ...prev,
             [itemId]: {
               id: itemId,
-              status: 'error',
+              status: 'error' as SaveStatus,
               error: errorMessage,
-              eTag: currentETag,
+              etag: currentETag,
             },
           }));
         }
@@ -178,7 +176,7 @@ export const useAutoSaveItems = ({
 
   const debouncedSave = useCallback(
     (itemId: number, field: string, value: number | string): void => {
-      // Ocisti prethodni timeout za ovu stavku
+      // Očisti prethodni timeout za ovu stavku
       const existingTimer = debounceTimersRef.current.get(itemId);
       if (existingTimer) {
         clearTimeout(existingTimer);
@@ -217,10 +215,10 @@ export const useAutoSaveItems = ({
   // ==========================================
 
   const refreshItem = useCallback(
-    async (itemId: number): Promise<DocumentLineItem | null> => {
+    async (itemId: number): Promise<DocumentLineItemDto | null> => {
       try {
         const item = await api.lineItem.get(documentId, itemId);
-        eTagsRef.current.set(itemId, item.eTag);
+        eTagsRef.current.set(itemId, item.etag);
         return item;
       } catch (error) {
         console.error('Error refreshing item:', error);
@@ -231,7 +229,7 @@ export const useAutoSaveItems = ({
   );
 
   // ==========================================
-  // CLEANUP - ocisti timeout-e
+  // CLEANUP - očisti timeout-e
   // ==========================================
 
   useEffect(() => {
