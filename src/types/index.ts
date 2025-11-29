@@ -5,6 +5,13 @@
 // Re-export sve iz api.types.ts
 export * from './api.types';
 
+// Import tipova iz api.types.ts za korišćenje u ovom fajlu
+import type {
+  SaveStatus,
+  DocumentLineItemDto,
+  ItemSaveState,
+} from './api.types';
+
 // ==========================================
 // UI STATE TYPES (samo UI-specifični tipovi)
 // ==========================================
