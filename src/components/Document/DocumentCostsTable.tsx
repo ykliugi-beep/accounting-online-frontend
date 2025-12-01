@@ -24,7 +24,6 @@ import {
   Delete as DeleteIcon,
 } from '@mui/icons-material';
 import { useQuery } from '@tanstack/react-query';
-import { DocumentCostDto } from '../../types';
 import { api } from '../../api';
 
 interface DocumentCostsTableProps {

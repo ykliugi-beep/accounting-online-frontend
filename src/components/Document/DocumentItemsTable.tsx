@@ -354,7 +354,7 @@ export const DocumentItemsTable: React.FC<DocumentItemsTableProps> = ({
     [findFocusableColumn, focusCell, items.length]
   );
 
-  const columns = useMemo((): ColumnDef<DocumentLineItemDto>[] => {
+  const columns = useMemo(() => {
     return [
       columnHelper.display({
         id: 'id',
@@ -510,7 +510,7 @@ export const DocumentItemsTable: React.FC<DocumentItemsTableProps> = ({
           </IconButton>
         ),
       }),
-    ];
+    ] as ColumnDef<DocumentLineItemDto>[];
   }, [
     articleOptions,
     autoSaveMap,

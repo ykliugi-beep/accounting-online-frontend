@@ -70,8 +70,17 @@ export const useAutoSaveItems = ({
         if (!changes) return;
 
         try {
-          const currentETag = autoSaveMap[itemId]?.etag;
-          const patchData: PatchDocumentLineItemDto = changes;
+          const currentETag = autoSaveMap[itemId]?.etag || '';
+          
+          // Filter out null values from statusId - backend doesn't accept null
+          const patchData: PatchDocumentLineItemDto = {};
+          Object.entries(changes).forEach(([key, val]) => {
+            if (key === 'statusId' && val === null) {
+              // Skip null statusId
+              return;
+            }
+            patchData[key as keyof PatchDocumentLineItemDto] = val as any;
+          });
 
           const updated = await api.lineItem.patch(
             documentId,
@@ -118,8 +127,9 @@ export const useAutoSaveItems = ({
     async (itemId: number, field: string, value: string | number) => {
       try {
         updateItemStatus(itemId, 'saving');
+        const currentETag = autoSaveMap[itemId]?.etag || '';
         const patchData: PatchDocumentLineItemDto = { [field]: value };
-        const updated = await api.lineItem.patch(documentId, itemId, patchData);
+        const updated = await api.lineItem.patch(documentId, itemId, patchData, currentETag);
 
         setAutoSaveMap((prev) => ({
           ...prev,
@@ -140,7 +150,7 @@ export const useAutoSaveItems = ({
         updateItemStatus(itemId, 'error', message);
       }
     },
-    [documentId, queryClient, updateItemStatus]
+    [autoSaveMap, documentId, queryClient, updateItemStatus]
   );
 
   const refreshItem = useCallback(

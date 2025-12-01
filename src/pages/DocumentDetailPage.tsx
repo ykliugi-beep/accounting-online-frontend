@@ -100,7 +100,7 @@ export const DocumentDetailPage: React.FC = () => {
 
       <Box>
         {activeTab === 0 && (
-          <DocumentHeader document={document} documentId={documentId} />
+          <DocumentHeader document={document} />
         )}
         {activeTab === 1 && <DocumentItemsTable documentId={documentId} />}
         {activeTab === 2 && <DocumentCostsTable documentId={documentId} />}
