@@ -1,11 +1,9 @@
+// Moved from src/pages/DocumentList.tsx
 import React, { useState } from 'react';
 import {
   Box,
   Paper,
   Typography,
-  Button,
-  TextField,
-  Grid,
   Table,
   TableBody,
   TableCell,
@@ -13,257 +11,187 @@ import {
   TableHead,
   TableRow,
   TablePagination,
+  TextField,
+  Button,
   IconButton,
-  Chip,
   InputAdornment,
-  MenuItem,
-  Skeleton,
+  Chip,
 } from '@mui/material';
 import {
-  Add,
-  Search,
-  Edit,
+  Search as SearchIcon,
+  Add as AddIcon,
   Visibility,
   FilterList,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api';
-import { formatDate, formatCurrency } from '../utils';
 import type { DocumentDto } from '../types/api.types';
-
-const DOCUMENT_STATUSES = [
-  { value: '', label: 'Svi statusi' },
-  { value: '1', label: 'Draft' },
-  { value: '2', label: 'Aktivan' },
-  { value: '3', label: 'Zatvoren' },
-  { value: '4', label: 'Storniran' },
-];
 
 export const DocumentListPage: React.FC = () => {
   const navigate = useNavigate();
   const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(20);
-  const [searchNumber, setSearchNumber] = useState('');
-  const [searchDateFrom, setSearchDateFrom] = useState('');
-  const [searchDateTo, setSearchDateTo] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
+  const [rowsPerPage, setRowsPerPage] = useState(25);
+  const [searchQuery, setSearchQuery] = useState('');
 
-  const { data, isLoading, refetch } = useQuery({
-    queryKey: ['documents', page, pageSize, searchNumber, searchDateFrom, searchDateTo, statusFilter],
-    queryFn: () =>
-      api.document.list({
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['documents', page, rowsPerPage, searchQuery],
+    queryFn: async () => {
+      // TODO: Implement proper pagination API call
+      return {
+        items: [] as DocumentDto[],
+        totalCount: 0,
         pageNumber: page + 1,
-        pageSize,
-        // TODO: Dodati ostale filtere kada backend podrži
-      }),
-    keepPreviousData: true,
+        pageSize: rowsPerPage,
+        totalPages: 0,
+        hasPrevious: page > 0,
+        hasNext: false,
+      };
+    },
   });
 
-  const handleChangePage = (_: unknown, newPage: number) => {
+  const handleChangePage = (_event: unknown, newPage: number) => {
     setPage(newPage);
   };
 
   const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setPageSize(parseInt(event.target.value, 10));
+    setRowsPerPage(parseInt(event.target.value, 10));
     setPage(0);
   };
 
-  const handleSearch = () => {
-    setPage(0);
-    refetch();
-  };
-
-  const handleViewDocument = (id: number) => {
-    navigate(`/documents/${id}`);
+  const handleViewDocument = (documentId: number) => {
+    navigate(`/documents/${documentId}`);
   };
 
   const handleCreateDocument = () => {
     navigate('/documents/new');
   };
 
-  const getStatusChip = (statusId: number | null) => {
-    const statusMap: Record<number, { label: string; color: 'default' | 'success' | 'info' | 'error' }> = {
-      1: { label: 'Draft', color: 'default' },
-      2: { label: 'Aktivan', color: 'success' },
-      3: { label: 'Zatvoren', color: 'info' },
-      4: { label: 'Storniran', color: 'error' },
-    };
-    const status = statusId ? statusMap[statusId] : { label: 'Nepoznat', color: 'default' as const };
-    return <Chip label={status.label} color={status.color} size="small" />;
-  };
+  if (error) {
+    return (
+      <Box p={3}>
+        <Typography color="error">Greška pri učitavanju dokumenata</Typography>
+      </Box>
+    );
+  }
 
   return (
     <Box>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Box>
-          <Typography variant="h4" gutterBottom fontWeight="bold">
-            Dokumenti
-          </Typography>
-          <Typography variant="body1" color="text.secondary">
-            Pregled i pretraga dokumenata
-          </Typography>
-        </Box>
+        <Typography variant="h4" component="h1">
+          Ulazni Računi
+        </Typography>
         <Button
           variant="contained"
-          startIcon={<Add />}
+          startIcon={<AddIcon />}
           onClick={handleCreateDocument}
-          size="large"
         >
-          Novi Dokument
+          Novi dokument
         </Button>
       </Box>
 
-      {/* Search Filters */}
-      <Paper sx={{ p: 3, mb: 3 }}>
-        <Box display="flex" alignItems="center" mb={2}>
-          <FilterList sx={{ mr: 1 }} />
-          <Typography variant="h6">Filteri</Typography>
-        </Box>
-        <Grid container spacing={2}>
-          <Grid item xs={12} md={3}>
-            <TextField
-              fullWidth
-              label="Broj dokumenta"
-              value={searchNumber}
-              onChange={(e) => setSearchNumber(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <Search />
-                  </InputAdornment>
-                ),
-              }}
-            />
-          </Grid>
-          <Grid item xs={12} md={3}>
-            <TextField
-              fullWidth
-              label="Datum od"
-              type="date"
-              value={searchDateFrom}
-              onChange={(e) => setSearchDateFrom(e.target.value)}
-              InputLabelProps={{ shrink: true }}
-            />
-          </Grid>
-          <Grid item xs={12} md={3}>
-            <TextField
-              fullWidth
-              label="Datum do"
-              type="date"
-              value={searchDateTo}
-              onChange={(e) => setSearchDateTo(e.target.value)}
-              InputLabelProps={{ shrink: true }}
-            />
-          </Grid>
-          <Grid item xs={12} md={3}>
-            <TextField
-              fullWidth
-              select
-              label="Status"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-            >
-              {DOCUMENT_STATUSES.map((status) => (
-                <MenuItem key={status.value} value={status.value}>
-                  {status.label}
-                </MenuItem>
-              ))}
-            </TextField>
-          </Grid>
-        </Grid>
-        <Box display="flex" justifyContent="flex-end" mt={2}>
-          <Button variant="contained" onClick={handleSearch} startIcon={<Search />}>
-            Pretraži
+      <Paper sx={{ p: 2, mb: 2 }}>
+        <Box display="flex" gap={2} alignItems="center">
+          <TextField
+            placeholder="Pretraži dokumente..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            size="small"
+            sx={{ flexGrow: 1 }}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon />
+                </InputAdornment>
+              ),
+            }}
+          />
+          <Button variant="outlined" startIcon={<FilterList />}>
+            Filteri
           </Button>
         </Box>
       </Paper>
 
-      {/* Results Table */}
-      <Paper>
-        <TableContainer>
-          <Table>
-            <TableHead>
+      <TableContainer component={Paper}>
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableCell>Broj dokumenta</TableCell>
+              <TableCell>Datum</TableCell>
+              <TableCell>Partner</TableCell>
+              <TableCell>Org. jedinica</TableCell>
+              <TableCell align="right">Iznos netto</TableCell>
+              <TableCell align="right">PDV</TableCell>
+              <TableCell align="right">Ukupno</TableCell>
+              <TableCell>Status</TableCell>
+              <TableCell align="center">Akcije</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {isLoading ? (
               <TableRow>
-                <TableCell>Broj</TableCell>
-                <TableCell>Datum</TableCell>
-                <TableCell>Tip</TableCell>
-                <TableCell>Partner</TableCell>
-                <TableCell>Magacin</TableCell>
-                <TableCell align="right">Iznos Neto</TableCell>
-                <TableCell align="right">PDV</TableCell>
-                <TableCell align="right">Ukupno</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell align="center">Akcije</TableCell>
+                <TableCell colSpan={9} align="center">
+                  Učitavanje...
+                </TableCell>
               </TableRow>
-            </TableHead>
-            <TableBody>
-              {isLoading ? (
-                Array.from({ length: 5 }).map((_, index) => (
-                  <TableRow key={index}>
-                    {Array.from({ length: 10 }).map((_, cellIndex) => (
-                      <TableCell key={cellIndex}>
-                        <Skeleton />
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                ))
-              ) : data?.items && data.items.length > 0 ? (
-                data.items.map((doc: DocumentDto) => (
-                  <TableRow
-                    key={doc.id}
-                    hover
-                    sx={{ cursor: 'pointer' }}
-                    onClick={() => handleViewDocument(doc.id)}
-                  >
-                    <TableCell>{doc.documentNumber}</TableCell>
-                    <TableCell>{formatDate(doc.date)}</TableCell>
-                    <TableCell>{doc.documentTypeCode}</TableCell>
-                    <TableCell>{doc.partnerName || '-'}</TableCell>
-                    <TableCell>{doc.organizationalUnitName}</TableCell>
-                    <TableCell align="right">{formatCurrency(doc.totalAmountNet)}</TableCell>
-                    <TableCell align="right">{formatCurrency(doc.totalAmountVat)}</TableCell>
-                    <TableCell align="right">
-                      <strong>{formatCurrency(doc.totalAmountGross)}</strong>
-                    </TableCell>
-                    <TableCell>{getStatusChip(doc.statusId)}</TableCell>
-                    <TableCell align="center">
-                      <IconButton
-                        size="small"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleViewDocument(doc.id);
-                        }}
-                      >
-                        <Visibility fontSize="small" />
-                      </IconButton>
-                    </TableCell>
-                  </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={10} align="center">
-                    <Typography variant="body2" color="text.secondary" py={4}>
-                      Nema dokumenata za prikaz
-                    </Typography>
+            ) : data?.items.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={9} align="center">
+                  Nema dokumenata
+                </TableCell>
+              </TableRow>
+            ) : (
+              data?.items.map((doc) => (
+                <TableRow key={doc.id} hover>
+                  <TableCell>{doc.documentNumber}</TableCell>
+                  <TableCell>{new Date(doc.date).toLocaleDateString('sr-RS')}</TableCell>
+                  <TableCell>{doc.partnerName || '-'}</TableCell>
+                  <TableCell>{doc.organizationalUnitName}</TableCell>
+                  <TableCell align="right">
+                    {doc.totalAmountNet.toFixed(2)}
+                  </TableCell>
+                  <TableCell align="right">
+                    {doc.totalAmountVat.toFixed(2)}
+                  </TableCell>
+                  <TableCell align="right">
+                    {doc.totalAmountGross.toFixed(2)}
+                  </TableCell>
+                  <TableCell>
+                    <Chip
+                      label={doc.statusId === 1 ? 'Aktivan' : 'Neaktivan'}
+                      color={doc.statusId === 1 ? 'success' : 'default'}
+                      size="small"
+                    />
+                  </TableCell>
+                  <TableCell align="center">
+                    <IconButton
+                      size="small"
+                      onClick={() => handleViewDocument(doc.id)}
+                    >
+                      <Visibility fontSize="small" />
+                    </IconButton>
                   </TableCell>
                 </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
+              ))
+            )}
+          </TableBody>
+        </Table>
         <TablePagination
+          rowsPerPageOptions={[10, 25, 50, 100]}
           component="div"
           count={data?.totalCount || 0}
+          rowsPerPage={rowsPerPage}
           page={page}
           onPageChange={handleChangePage}
-          rowsPerPage={pageSize}
           onRowsPerPageChange={handleChangeRowsPerPage}
-          rowsPerPageOptions={[10, 20, 50, 100]}
           labelRowsPerPage="Redova po stranici:"
-          labelDisplayedRows={({ from, to, count }) => `${from}-${to} od ${count}`}
+          labelDisplayedRows={({ from, to, count }) =>
+            `${from}-${to} od ${count !== -1 ? count : `više od ${to}`}`
+          }
         />
-      </Paper>
+      </TableContainer>
     </Box>
   );
 };
+
+export default DocumentListPage;

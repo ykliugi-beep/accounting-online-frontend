@@ -18,7 +18,7 @@ export interface EditableCellProps {
   field: string;
   selectOptions?: { value: number | string; label: string }[];
   onValueChange: (itemId: number, field: string, value: string | number) => void;
-  status: SaveStatus;
+  status: import('./api.types').SaveStatus;
   error?: string | null;
   disabled?: boolean;
   inputRef?: (element: HTMLElement | null) => void;
@@ -30,10 +30,10 @@ export interface EditableCellProps {
 // ==========================================
 
 export interface DocumentStore {
-  items: DocumentLineItemDto[];
-  setItems: (items: DocumentLineItemDto[]) => void;
-  addItem: (item: DocumentLineItemDto) => void;
-  updateItem: (id: number, updates: Partial<DocumentLineItemDto>) => void;
+  items: import('./api.types').DocumentLineItemDto[];
+  setItems: (items: import('./api.types').DocumentLineItemDto[]) => void;
+  addItem: (item: import('./api.types').DocumentLineItemDto) => void;
+  updateItem: (id: number, updates: Partial<import('./api.types').DocumentLineItemDto>) => void;
   removeItem: (id: number) => void;
 }
 
@@ -49,7 +49,7 @@ export interface UIStore {
 // ==========================================
 
 export interface AutoSaveStateMap {
-  [itemId: number]: ItemSaveState;
+  [itemId: number]: import('./api.types').ItemSaveState;
 }
 
 // ==========================================

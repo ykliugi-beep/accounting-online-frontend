@@ -10,7 +10,7 @@ import {
   MenuItem,
 } from '@mui/material';
 import { Check, Error as ErrorIcon } from '@mui/icons-material';
-import { AutoSaveStatus } from '../../types';
+import { SaveStatus } from '../../types';
 
 export type CellNavigationDirection =
   | 'nextColumn'
@@ -24,13 +24,11 @@ interface EditableCellProps {
   field: string;
   type: 'number' | 'decimal' | 'text' | 'select';
   onValueChange: (itemId: number, field: string, value: string | number) => void;
-  status: AutoSaveStatus;
-  error?: string;
+  status: SaveStatus;
+  error?: string | null;
   disabled?: boolean;
   selectOptions?: { value: string | number; label: string }[];
-  inputRef?: (
-    element: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null
-  ) => void;
+  inputRef?: (element: HTMLElement | null) => void;
   onMove?: (direction: CellNavigationDirection) => void;
 }
 
@@ -78,7 +76,7 @@ export const EditableCell: React.FC<EditableCellProps> = ({
   }, [commitValue]);
 
   const handleKeyDown = useCallback(
-    (event: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    (event: React.KeyboardEvent) => {
       if (event.key === 'Enter') {
         event.preventDefault();
         commitValue();
@@ -111,9 +109,9 @@ export const EditableCell: React.FC<EditableCellProps> = ({
       value: tempValue,
       onChange: (e: React.ChangeEvent<HTMLInputElement>) => setTempValue(e.target.value),
       onBlur: handleBlur,
-      onKeyDown: handleKeyDown,
+      onKeyDown: handleKeyDown as any,
       onFocus: handleFocus,
-      inputRef,
+      inputRef: (el: any) => inputRef?.(el),
       fullWidth: true,
       disabled,
       error: Boolean(error),

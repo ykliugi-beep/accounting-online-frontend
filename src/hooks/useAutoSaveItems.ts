@@ -3,7 +3,6 @@ import {
   DocumentLineItemDto,
   PatchDocumentLineItemDto,
   SaveStatus,
-  ItemSaveState,
   AutoSaveStateMap,
 } from '../types';
 import { api } from '../api';

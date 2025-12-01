@@ -88,7 +88,7 @@ export const DocumentItemsTable: React.FC<DocumentItemsTableProps> = ({
   const lastKnownItemsRef = useRef<Map<number, DocumentLineItemDto>>(new Map());
 
   const { data: articles, isLoading: articlesLoading } = useArticles();
-  const { data: taxRates, isLoading: taxRatesLoading } = useTaxRates();
+  const { isLoading: taxRatesLoading } = useTaxRates();
 
   const { autoSaveMap, debouncedSave, forceUpdateItem, refreshItem, initializeETags } =
     useAutoSaveItems({
@@ -271,11 +271,6 @@ export const DocumentItemsTable: React.FC<DocumentItemsTableProps> = ({
     [articles]
   );
 
-  const taxRateMap = useMemo(
-    () => new Map(taxRates?.map((rate) => [rate.id, rate.percentage]) ?? []),
-    [taxRates]
-  );
-
   const registerCellRef = useCallback(
     (rowIndex: number, columnIndex: number, element: HTMLElement | null) => {
       const key = getNavigationKey(rowIndex, columnIndex);
@@ -360,7 +355,7 @@ export const DocumentItemsTable: React.FC<DocumentItemsTableProps> = ({
     [findFocusableColumn, focusCell, items.length]
   );
 
-  const columns = useMemo<ColumnDef<DocumentLineItemDto>[]>(() => {
+  const columns: ColumnDef<DocumentLineItemDto>[] = useMemo(() => {
     return [
       columnHelper.display({
         id: 'id',
@@ -375,7 +370,7 @@ export const DocumentItemsTable: React.FC<DocumentItemsTableProps> = ({
         header: () => 'Artikal',
         cell: (info) => {
           const item = info.row.original;
-          const autoSaveState = autoSaveMap[item.id] || { status: 'idle' };
+          const autoSaveState = autoSaveMap[item.id] || { status: 'idle' as const };
           return (
             <EditableCell
               value={info.getValue() ?? ''}
@@ -400,7 +395,7 @@ export const DocumentItemsTable: React.FC<DocumentItemsTableProps> = ({
         header: () => 'Količina',
         cell: (info) => {
           const item = info.row.original;
-          const autoSaveState = autoSaveMap[item.id] || { status: 'idle' };
+          const autoSaveState = autoSaveMap[item.id] || { status: 'idle' as const };
           return (
             <EditableCell
               value={info.getValue() ?? 0}
@@ -424,7 +419,7 @@ export const DocumentItemsTable: React.FC<DocumentItemsTableProps> = ({
         header: () => 'Cena',
         cell: (info) => {
           const item = info.row.original;
-          const autoSaveState = autoSaveMap[item.id] || { status: 'idle' };
+          const autoSaveState = autoSaveMap[item.id] || { status: 'idle' as const };
           return (
             <EditableCell
               value={info.getValue() ?? 0}
@@ -448,7 +443,7 @@ export const DocumentItemsTable: React.FC<DocumentItemsTableProps> = ({
         header: () => 'Rabat',
         cell: (info) => {
           const item = info.row.original;
-          const autoSaveState = autoSaveMap[item.id] || { status: 'idle' };
+          const autoSaveState = autoSaveMap[item.id] || { status: 'idle' as const };
           return (
             <EditableCell
               value={info.getValue() ?? 0}
@@ -471,7 +466,7 @@ export const DocumentItemsTable: React.FC<DocumentItemsTableProps> = ({
       columnHelper.display({
         id: 'margin',
         header: () => 'Marža',
-        cell: ({ row }) => (
+        cell: () => (
           <Typography variant="body2" align="right">
             -
           </Typography>
