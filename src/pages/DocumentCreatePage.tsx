@@ -31,11 +31,18 @@ const DOCUMENT_TYPES = [
   { code: 'AR', label: 'Avansni Račun' },
 ];
 
-export const DocumentCreatePage: React.FC = () => {
+// Props interface for route-based document type
+interface DocumentCreatePageProps {
+  docType?: string;
+}
+
+export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType }) => {
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
 
-  const { data: combosData, isLoading: combosLoading } = useAllCombos('UR');
+  // Use docType prop or default to 'UR'
+  const defaultDocType = docType || 'UR';
+  const { data: combosData, isLoading: combosLoading } = useAllCombos(defaultDocType);
 
   const partners = combosData?.partners;
   const organizationalUnits = combosData?.orgUnits;
@@ -43,7 +50,7 @@ export const DocumentCreatePage: React.FC = () => {
   const referents = combosData?.referents;
 
   const [formData, setFormData] = useState<CreateDocumentDto>({
-    documentTypeCode: 'UR',
+    documentTypeCode: defaultDocType,  // Use prop or default
     documentNumber: '',
     date: new Date().toISOString().split('T')[0],
     partnerId: null,
@@ -95,6 +102,9 @@ export const DocumentCreatePage: React.FC = () => {
     navigate(-1);
   };
 
+  // Get document type label
+  const docTypeLabel = DOCUMENT_TYPES.find(t => t.code === defaultDocType)?.label || 'Novi Dokument';
+
   return (
     <Box>
       <Box display="flex" alignItems="center" mb={3}>
@@ -103,7 +113,7 @@ export const DocumentCreatePage: React.FC = () => {
         </Button>
         <Box>
           <Typography variant="h4" fontWeight="bold">
-            Novi Dokument
+            {docTypeLabel}
           </Typography>
           <Typography variant="body1" color="text.secondary">
             Unesite osnovne podatke za novi dokument
@@ -243,18 +253,18 @@ export const DocumentCreatePage: React.FC = () => {
           </Grid>
 
           <Box display="flex" justifyContent="flex-end" gap={2} mt={4}>
-            <Button variant="outlined" onClick={handleCancel} disabled={createMutation.isLoading}>
+            <Button variant="outlined" onClick={handleCancel} disabled={createMutation.isPending}>
               Odustani
             </Button>
             <Button
               type="submit"
               variant="contained"
               startIcon={
-                createMutation.isLoading ? <CircularProgress size={20} /> : <Save />
+                createMutation.isPending ? <CircularProgress size={20} /> : <Save />
               }
-              disabled={createMutation.isLoading}
+              disabled={createMutation.isPending}
             >
-              {createMutation.isLoading ? 'Sačuvavam...' : 'Sačuvaj i Nastavi'}
+              {createMutation.isPending ? 'Sačuvavam...' : 'Sačuvaj i Nastavi'}
             </Button>
           </Box>
         </form>
