@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Paper,
@@ -42,7 +42,21 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
 
   // Use docType prop or default to 'UR'
   const defaultDocType = docType || 'UR';
-  const { data: combosData, isLoading: combosLoading } = useAllCombos(defaultDocType);
+  const { data: combosData, isLoading: combosLoading, error: combosError } = useAllCombos(defaultDocType);
+
+  // 🔧 DEBUG: Log what API returns
+  useEffect(() => {
+    if (combosData) {
+      console.log('📦 Combos Data Received:', combosData);
+      console.log('👥 Partners:', combosData.partners);
+      console.log('🏪 Org Units:', combosData.orgUnits);
+      console.log('💼 Taxation Methods:', combosData.taxationMethods);
+      console.log('👤 Referents:', combosData.referents);
+    }
+    if (combosError) {
+      console.error('❌ Combos Error:', combosError);
+    }
+  }, [combosData, combosError]);
 
   const partners = combosData?.partners;
   const organizationalUnits = combosData?.orgUnits;
@@ -127,6 +141,22 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
         </Alert>
       )}
 
+      {combosError && (
+        <Alert severity="error" sx={{ mb: 3 }}>
+          Greška pri učitavanju podataka: {(combosError as any)?.message || 'Nepoznata greška'}
+        </Alert>
+      )}
+
+      {/* 🔧 DEBUG: Show loading state */}
+      {combosLoading && (
+        <Alert severity="info" sx={{ mb: 3 }}>
+          <Box display="flex" alignItems="center" gap={2}>
+            <CircularProgress size={20} />
+            Učitavam dropdown podatke sa servera...
+          </Box>
+        </Alert>
+      )}
+
       <Paper sx={{ p: 4 }}>
         <form onSubmit={handleSubmit}>
           <Grid container spacing={3}>
@@ -178,7 +208,12 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
                 value={partners?.find((p: PartnerComboDto) => p.id === formData.partnerId) || null}
                 onChange={(_, value) => handleChange('partnerId', value?.id || null)}
                 renderInput={(params) => (
-                  <TextField {...params} label="Partner (Dobavljač)" placeholder="Izaberite partnera" />
+                  <TextField 
+                    {...params} 
+                    label="Partner (Dobavljač)" 
+                    placeholder="Izaberite partnera"
+                    helperText={partners ? `${partners.length} partnera učitano` : 'Učitavam...'}
+                  />
                 )}
               />
             </Grid>
@@ -195,7 +230,13 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
                   handleChange('organizationalUnitId', value?.id || 0)
                 }
                 renderInput={(params) => (
-                  <TextField {...params} required label="Magacin" placeholder="Izaberite magacin" />
+                  <TextField 
+                    {...params} 
+                    required 
+                    label="Magacin" 
+                    placeholder="Izaberite magacin"
+                    helperText={organizationalUnits ? `${organizationalUnits.length} magacina učitano` : 'Učitavam...'}
+                  />
                 )}
               />
             </Grid>
@@ -208,7 +249,12 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
                 value={referents?.find((r: ReferentComboDto) => r.id === formData.referentId) || null}
                 onChange={(_, value) => handleChange('referentId', value?.id || null)}
                 renderInput={(params) => (
-                  <TextField {...params} label="Referent" placeholder="Izaberite referenta" />
+                  <TextField 
+                    {...params} 
+                    label="Referent" 
+                    placeholder="Izaberite referenta"
+                    helperText={referents ? `${referents.length} referenata učitano` : 'Učitavam...'}
+                  />
                 )}
               />
             </Grid>
@@ -223,7 +269,12 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
                 }
                 onChange={(_, value) => handleChange('taxationMethodId', value?.id || null)}
                 renderInput={(params) => (
-                  <TextField {...params} label="Način Oporezivanja" placeholder="Izaberite" />
+                  <TextField 
+                    {...params} 
+                    label="Način Oporezivanja" 
+                    placeholder="Izaberite"
+                    helperText={taxationMethods ? `${taxationMethods.length} metoda učitano` : 'Učitavam...'}
+                  />
                 )}
               />
             </Grid>
@@ -262,7 +313,7 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
               startIcon={
                 createMutation.isPending ? <CircularProgress size={20} /> : <Save />
               }
-              disabled={createMutation.isPending}
+              disabled={createMutation.isPending || combosLoading}
             >
               {createMutation.isPending ? 'Sačuvavam...' : 'Sačuvaj i Nastavi'}
             </Button>
