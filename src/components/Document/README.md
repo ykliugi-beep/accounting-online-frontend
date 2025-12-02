@@ -3,6 +3,7 @@
 **UI Components**
 
 ## Struktura
+
 ```
 common/
 ├── Layout.tsx
@@ -62,6 +63,7 @@ dialogs/
 ## ItemsTable (KRITIČNO)
 
 **Features:**
+
 - Excel-like grid sa Material-UI TextFields
 - Tab/Enter navigacija
 - Autosave sa debounce
@@ -70,6 +72,7 @@ dialogs/
 - Virtualizacija za 200+ redova
 
 **Props:**
+
 ```typescript
 interface ItemsTableProps {
   documentId: string;

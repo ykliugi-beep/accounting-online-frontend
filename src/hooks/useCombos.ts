@@ -1,22 +1,24 @@
 import { useQuery, UseQueryResult } from '@tanstack/react-query';
 import {
-  PartnerCombo,
-  OrgUnitCombo,
-  TaxationMethodCombo,
-  ReferentCombo,
-  DocumentNDCombo,
-  TaxRateCombo,
-  ArticleCombo,
-  DocumentCostsListDto,
-  CostTypeCombo,
-  CostDistributionMethodCombo,
-  CostArticleCombo,
-} from '../types';
-import { api } from '../api';  // FIXED: Import from index.ts instead of endpoints.ts
+  PartnerComboDto,
+  OrganizationalUnitComboDto,
+  TaxationMethodComboDto,
+  ReferentComboDto,
+  ReferenceDocumentComboDto,
+  TaxRateComboDto,
+  ArticleComboDto,
+  DocumentCostDto,
+  CostTypeComboDto,
+  CostDistributionMethodComboDto,
+  DocumentLineItemDto,
+} from '../types/api.types';
+import { api } from '../api';
 
 /**
  * Custom hook za sve 11 Stored Procedures
  * Koristi React Query za kesiranje i automatsku invalidaciju
+ * 
+ * SYNTAX: TanStack Query v4.36.1 positional arguments
  */
 
 // ==========================================
@@ -24,17 +26,17 @@ import { api } from '../api';  // FIXED: Import from index.ts instead of endpoin
 // ==========================================
 
 const queryKeys = {
-  partners: ['lookups', 'partners'],
-  orgUnits: (docTypeId: string) => ['lookups', 'orgUnits', docTypeId],
-  taxationMethods: ['lookups', 'taxationMethods'],
-  referents: ['lookups', 'referents'],
-  documentsND: ['lookups', 'documentsND'],
-  taxRates: ['lookups', 'taxRates'],
-  articles: ['lookups', 'articles'],
-  documentCosts: (documentId: number) => ['lookups', 'documentCosts', documentId],
-  costTypes: ['lookups', 'costTypes'],
-  costDistributionMethods: ['lookups', 'costDistributionMethods'],
-  costArticles: (documentId: number) => ['lookups', 'costArticles', documentId],
+  partners: ['lookups', 'partners'] as const,
+  orgUnits: (docTypeId: string) => ['lookups', 'orgUnits', docTypeId] as const,
+  taxationMethods: ['lookups', 'taxationMethods'] as const,
+  referents: ['lookups', 'referents'] as const,
+  documentsND: ['lookups', 'documentsND'] as const,
+  taxRates: ['lookups', 'taxRates'] as const,
+  articles: ['lookups', 'articles'] as const,
+  documentCosts: (documentId: number) => ['lookups', 'documentCosts', documentId] as const,
+  costTypes: ['lookups', 'costTypes'] as const,
+  costDistributionMethods: ['lookups', 'costDistributionMethods'] as const,
+  costArticles: (documentId: number) => ['lookups', 'costArticles', documentId] as const,
 };
 
 // ==========================================
@@ -44,13 +46,15 @@ const queryKeys = {
 /**
  * SP 1: Svi partneri
  */
-export const usePartners = (): UseQueryResult<PartnerCombo[], unknown> => {
-  return useQuery({
-    queryKey: queryKeys.partners,
-    queryFn: async () => api.lookup.getPartners(),
-    staleTime: 5 * 60 * 1000, // 5 minuta
-    gcTime: 30 * 60 * 1000, // 30 minuta (staro cacheTime)
-  });
+export const usePartners = (): UseQueryResult<PartnerComboDto[], unknown> => {
+  return useQuery(
+    queryKeys.partners,
+    async () => api.lookup.getPartners(),
+    {
+      staleTime: 5 * 60 * 1000, // 5 minuta
+      gcTime: 30 * 60 * 1000, // 30 minuta (v4: gcTime replaces cacheTime)
+    }
+  );
 };
 
 /**
@@ -58,76 +62,88 @@ export const usePartners = (): UseQueryResult<PartnerCombo[], unknown> => {
  */
 export const useOrgUnits = (
   docTypeId: string = 'UR'
-): UseQueryResult<OrgUnitCombo[], unknown> => {
-  return useQuery({
-    queryKey: queryKeys.orgUnits(docTypeId),
-    queryFn: async () => api.lookup.getOrganizationalUnits(docTypeId),
-    staleTime: 5 * 60 * 1000,
-    gcTime: 30 * 60 * 1000,
-  });
+): UseQueryResult<OrganizationalUnitComboDto[], unknown> => {
+  return useQuery(
+    queryKeys.orgUnits(docTypeId),
+    async () => api.lookup.getOrganizationalUnits(docTypeId),
+    {
+      staleTime: 5 * 60 * 1000,
+      gcTime: 30 * 60 * 1000,
+    }
+  );
 };
 
 /**
  * SP 3: Nacini oporezivanja
  */
 export const useTaxationMethods = (): UseQueryResult<
-  TaxationMethodCombo[],
+  TaxationMethodComboDto[],
   unknown
 > => {
-  return useQuery({
-    queryKey: queryKeys.taxationMethods,
-    queryFn: async () => api.lookup.getTaxationMethods(),
-    staleTime: 10 * 60 * 1000,
-    gcTime: 60 * 60 * 1000,
-  });
+  return useQuery(
+    queryKeys.taxationMethods,
+    async () => api.lookup.getTaxationMethods(),
+    {
+      staleTime: 10 * 60 * 1000,
+      gcTime: 60 * 60 * 1000,
+    }
+  );
 };
 
 /**
  * SP 4: Referenti (zaposleni)
  */
-export const useReferents = (): UseQueryResult<ReferentCombo[], unknown> => {
-  return useQuery({
-    queryKey: queryKeys.referents,
-    queryFn: async () => api.lookup.getReferents(),
-    staleTime: 10 * 60 * 1000,
-    gcTime: 60 * 60 * 1000,
-  });
+export const useReferents = (): UseQueryResult<ReferentComboDto[], unknown> => {
+  return useQuery(
+    queryKeys.referents,
+    async () => api.lookup.getReferents(),
+    {
+      staleTime: 10 * 60 * 1000,
+      gcTime: 60 * 60 * 1000,
+    }
+  );
 };
 
 /**
  * SP 5: ND dokumenti
  */
-export const useDocumentsND = (): UseQueryResult<DocumentNDCombo[], unknown> => {
-  return useQuery({
-    queryKey: queryKeys.documentsND,
-    queryFn: async () => api.lookup.getReferenceDocuments('ND'),
-    staleTime: 5 * 60 * 1000,
-    gcTime: 30 * 60 * 1000,
-  });
+export const useDocumentsND = (): UseQueryResult<ReferenceDocumentComboDto[], unknown> => {
+  return useQuery(
+    queryKeys.documentsND,
+    async () => api.lookup.getReferenceDocuments('ND'),
+    {
+      staleTime: 5 * 60 * 1000,
+      gcTime: 30 * 60 * 1000,
+    }
+  );
 };
 
 /**
  * SP 6: Poreske stope
  */
-export const useTaxRates = (): UseQueryResult<TaxRateCombo[], unknown> => {
-  return useQuery({
-    queryKey: queryKeys.taxRates,
-    queryFn: async () => api.lookup.getTaxRates(),
-    staleTime: 10 * 60 * 1000,
-    gcTime: 60 * 60 * 1000,
-  });
+export const useTaxRates = (): UseQueryResult<TaxRateComboDto[], unknown> => {
+  return useQuery(
+    queryKeys.taxRates,
+    async () => api.lookup.getTaxRates(),
+    {
+      staleTime: 10 * 60 * 1000,
+      gcTime: 60 * 60 * 1000,
+    }
+  );
 };
 
 /**
  * SP 7: Artikli
  */
-export const useArticles = (): UseQueryResult<ArticleCombo[], unknown> => {
-  return useQuery({
-    queryKey: queryKeys.articles,
-    queryFn: async () => api.lookup.getArticles(),
-    staleTime: 5 * 60 * 1000,
-    gcTime: 30 * 60 * 1000,
-  });
+export const useArticles = (): UseQueryResult<ArticleComboDto[], unknown> => {
+  return useQuery(
+    queryKeys.articles,
+    async () => api.lookup.getArticles(),
+    {
+      staleTime: 5 * 60 * 1000,
+      gcTime: 30 * 60 * 1000,
+    }
+  );
 };
 
 /**
@@ -135,41 +151,47 @@ export const useArticles = (): UseQueryResult<ArticleCombo[], unknown> => {
  */
 export const useDocumentCosts = (
   documentId: number
-): UseQueryResult<DocumentCostsListDto[], unknown> => {
-  return useQuery({
-    queryKey: queryKeys.documentCosts(documentId),
-    queryFn: async () => api.cost.list(documentId),
-    staleTime: 2 * 60 * 1000,
-    gcTime: 10 * 60 * 1000,
-    enabled: !!documentId, // Samo ako je documentId proslezen
-  });
+): UseQueryResult<DocumentCostDto[], unknown> => {
+  return useQuery(
+    queryKeys.documentCosts(documentId),
+    async () => api.cost.list(documentId),
+    {
+      staleTime: 2 * 60 * 1000,
+      gcTime: 10 * 60 * 1000,
+      enabled: !!documentId, // Samo ako je documentId proslezen
+    }
+  );
 };
 
 /**
  * SP 9: Vrste troskova
  */
-export const useCostTypes = (): UseQueryResult<CostTypeCombo[], unknown> => {
-  return useQuery({
-    queryKey: queryKeys.costTypes,
-    queryFn: async () => api.lookup.getCostTypes(),
-    staleTime: 10 * 60 * 1000,
-    gcTime: 60 * 60 * 1000,
-  });
+export const useCostTypes = (): UseQueryResult<CostTypeComboDto[], unknown> => {
+  return useQuery(
+    queryKeys.costTypes,
+    async () => api.lookup.getCostTypes(),
+    {
+      staleTime: 10 * 60 * 1000,
+      gcTime: 60 * 60 * 1000,
+    }
+  );
 };
 
 /**
  * SP 10: Nacini deljenja troskova (1, 2, 3)
  */
 export const useCostDistributionMethods = (): UseQueryResult<
-  CostDistributionMethodCombo[],
+  CostDistributionMethodComboDto[],
   unknown
 > => {
-  return useQuery({
-    queryKey: queryKeys.costDistributionMethods,
-    queryFn: async () => api.lookup.getCostDistributionMethods(),
-    staleTime: Infinity, // Nikad se ne menja
-    gcTime: Infinity,
-  });
+  return useQuery(
+    queryKeys.costDistributionMethods,
+    async () => api.lookup.getCostDistributionMethods(),
+    {
+      staleTime: Infinity, // Nikad se ne menja
+      gcTime: Infinity,
+    }
+  );
 };
 
 /**
@@ -177,14 +199,16 @@ export const useCostDistributionMethods = (): UseQueryResult<
  */
 export const useCostArticles = (
   documentId: number
-): UseQueryResult<CostArticleCombo[], unknown> => {
-  return useQuery({
-    queryKey: queryKeys.costArticles(documentId),
-    queryFn: async () => api.lineItem.list(documentId),
-    staleTime: 2 * 60 * 1000,
-    gcTime: 10 * 60 * 1000,
-    enabled: !!documentId,
-  });
+): UseQueryResult<DocumentLineItemDto[], unknown> => {
+  return useQuery(
+    queryKeys.costArticles(documentId),
+    async () => api.lineItem.list(documentId),
+    {
+      staleTime: 2 * 60 * 1000,
+      gcTime: 10 * 60 * 1000,
+      enabled: !!documentId,
+    }
+  );
 };
 
 // ==========================================
@@ -192,23 +216,23 @@ export const useCostArticles = (
 // ==========================================
 
 export interface AllCombos {
-  partners: PartnerCombo[];
-  orgUnits: OrgUnitCombo[];
-  taxationMethods: TaxationMethodCombo[];
-  referents: ReferentCombo[];
-  documentsND: DocumentNDCombo[];
-  taxRates: TaxRateCombo[];
-  articles: ArticleCombo[];
-  costTypes: CostTypeCombo[];
-  costDistributionMethods: CostDistributionMethodCombo[];
+  partners: PartnerComboDto[];
+  orgUnits: OrganizationalUnitComboDto[];
+  taxationMethods: TaxationMethodComboDto[];
+  referents: ReferentComboDto[];
+  documentsND: ReferenceDocumentComboDto[];
+  taxRates: TaxRateComboDto[];
+  articles: ArticleComboDto[];
+  costTypes: CostTypeComboDto[];
+  costDistributionMethods: CostDistributionMethodComboDto[];
 }
 
 export const useAllCombos = (
   docTypeId: string = 'UR'
 ): UseQueryResult<AllCombos, unknown> => {
-  return useQuery({
-    queryKey: ['lookups', 'all', docTypeId],
-    queryFn: async () => {
+  return useQuery(
+    ['lookups', 'all', docTypeId] as const,
+    async () => {
       const [
         partners,
         orgUnits,
@@ -243,9 +267,11 @@ export const useAllCombos = (
         costDistributionMethods,
       };
     },
-    staleTime: 5 * 60 * 1000,
-    gcTime: 30 * 60 * 1000,
-  });
+    {
+      staleTime: 5 * 60 * 1000,
+      gcTime: 30 * 60 * 1000,
+    }
+  );
 };
 
 export default {

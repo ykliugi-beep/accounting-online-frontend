@@ -1,9 +1,10 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
-import EditableCell from '../EditableCell';
+import EditableCell from '../Document/EditableCell';
 
 describe('EditableCell keyboard navigation', () => {
   const baseProps = {
+    value: 0, // ✅ Added missing required prop
     itemId: 1,
     field: 'quantity',
     type: 'decimal' as const,

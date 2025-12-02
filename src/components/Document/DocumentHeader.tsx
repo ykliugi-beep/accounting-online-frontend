@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import {
   Box,
   Grid,
@@ -18,10 +18,19 @@ import {
   TableRow,
   IconButton,
   Button,
+  TableContainer,
 } from '@mui/material';
 import { ExpandMore, Add, Delete } from '@mui/icons-material';
-import { useCombos } from '../../hooks/useCombos';
-import type { DocumentDto, UpdateDocumentDto, TaxRateComboDto } from '../../types/api.types';
+import { useAllCombos } from '../../hooks/useCombos';
+import type { 
+  DocumentDto, 
+  UpdateDocumentDto, 
+  TaxRateComboDto,
+  PartnerComboDto,
+  OrganizationalUnitComboDto,
+  TaxationMethodComboDto,
+  ReferentComboDto,
+} from '../../types/api.types';
 import { formatDate } from '../../utils';
 
 interface DocumentHeaderProps {
@@ -37,15 +46,14 @@ interface AdvanceVATItem {
 }
 
 export const DocumentHeader: React.FC<DocumentHeaderProps> = ({ document, onChange }) => {
-  const {
-    partners,
-    organizationalUnits,
-    taxationMethods,
-    referents,
-    referenceDocuments,
-    taxRates,
-    isLoading: combosLoading,
-  } = useCombos(document?.documentTypeCode);
+  const { data: combosData, isLoading: combosLoading } = useAllCombos(document?.documentTypeCode || 'UR');
+
+  const partners = combosData?.partners;
+  const organizationalUnits = combosData?.orgUnits;
+  const taxationMethods = combosData?.taxationMethods;
+  const referents = combosData?.referents;
+  const referenceDocuments = combosData?.documentsND;
+  const taxRates = combosData?.taxRates;
 
   const [advanceVATItems, setAdvanceVATItems] = React.useState<AdvanceVATItem[]>([]);
 
@@ -104,7 +112,7 @@ export const DocumentHeader: React.FC<DocumentHeaderProps> = ({ document, onChan
             options={partners || []}
             getOptionLabel={(option) => `${option.code} - ${option.name} (${option.city})`}
             loading={combosLoading}
-            value={partners?.find((p) => p.id === document.partnerId) || null}
+            value={partners?.find((p: PartnerComboDto) => p.id === document.partnerId) || null}
             onChange={(_, value) => handleFieldChange('partnerId', value?.id || null)}
             renderInput={(params) => (
               <TextField
@@ -134,7 +142,7 @@ export const DocumentHeader: React.FC<DocumentHeaderProps> = ({ document, onChan
             options={organizationalUnits || []}
             getOptionLabel={(option) => `${option.code} - ${option.name}`}
             loading={combosLoading}
-            value={organizationalUnits?.find((ou) => ou.id === document.organizationalUnitId) || null}
+            value={organizationalUnits?.find((ou: OrganizationalUnitComboDto) => ou.id === document.organizationalUnitId) || null}
             onChange={(_, value) => handleFieldChange('organizationalUnitId', value?.id || 0)}
             renderInput={(params) => (
               <TextField
@@ -166,7 +174,7 @@ export const DocumentHeader: React.FC<DocumentHeaderProps> = ({ document, onChan
             options={taxationMethods || []}
             getOptionLabel={(option) => option.description}
             loading={combosLoading}
-            value={taxationMethods?.find((tm) => tm.id === document.taxationMethodId) || null}
+            value={taxationMethods?.find((tm: TaxationMethodComboDto) => tm.id === document.taxationMethodId) || null}
             onChange={(_, value) => handleFieldChange('taxationMethodId', value?.id || null)}
             renderInput={(params) => (
               <TextField
@@ -195,7 +203,7 @@ export const DocumentHeader: React.FC<DocumentHeaderProps> = ({ document, onChan
             options={referents || []}
             getOptionLabel={(option) => `${option.code} - ${option.fullName}`}
             loading={combosLoading}
-            value={referents?.find((r) => r.id === document.referentId) || null}
+            value={referents?.find((r: ReferentComboDto) => r.id === document.referentId) || null}
             onChange={(_, value) => handleFieldChange('referentId', value?.id || null)}
             renderInput={(params) => (
               <TextField
@@ -241,7 +249,7 @@ export const DocumentHeader: React.FC<DocumentHeaderProps> = ({ document, onChan
             }
             loading={combosLoading}
             value={null} // TODO: Povezati sa backend poljem
-            onChange={(_, value) => {
+            onChange={() => {
               // TODO: Implementirati kada backend podrži
             }}
             renderInput={(params) => (
@@ -380,7 +388,7 @@ export const DocumentHeader: React.FC<DocumentHeaderProps> = ({ document, onChan
                             size="small"
                             options={taxRates || []}
                             getOptionLabel={(option) => `${option.id} - ${option.name}`}
-                            value={taxRates?.find((tr) => tr.id === item.taxRateId) || null}
+                            value={taxRates?.find((tr: TaxRateComboDto) => tr.id === item.taxRateId) || null}
                             onChange={(_, value) => {
                               if (value) {
                                 handleAdvanceVATChange(index, 'taxRateId', value.id);

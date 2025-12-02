@@ -1,9 +1,8 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { ThemeProvider, createTheme, CssBaseline } from '@mui/material';
-import { Layout } from './components/Layout';
+import { Layout } from './components/Layout/Layout';
 import { DashboardPage } from './pages/DashboardPage';
 import { DocumentListPage } from './pages/DocumentListPage';
 import { DocumentCreatePage } from './pages/DocumentCreatePage';
@@ -20,39 +19,24 @@ const queryClient = new QueryClient({
   },
 });
 
-function App() {
-  const { theme: themeMode } = useUIStore();
+const App: React.FC = () => {
+  const theme = useUIStore((state) => state.theme);
 
-  const theme = React.useMemo(
-    () =>
-      createTheme({
-        palette: {
-          mode: themeMode,
-          primary: {
-            main: '#1976d2',
-          },
-          secondary: {
-            main: '#dc004e',
-          },
-        },
-        typography: {
-          fontFamily: [
-            '-apple-system',
-            'BlinkMacSystemFont',
-            '"Segoe UI"',
-            'Roboto',
-            '"Helvetica Neue"',
-            'Arial',
-            'sans-serif',
-          ].join(','),
-        },
-      }),
-    [themeMode]
-  );
+  const muiTheme = createTheme({
+    palette: {
+      mode: theme,
+      primary: {
+        main: '#1976d2',
+      },
+      secondary: {
+        main: '#dc004e',
+      },
+    },
+  });
 
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider theme={theme}>
+      <ThemeProvider theme={muiTheme}>
         <CssBaseline />
         <BrowserRouter>
           <Layout>
@@ -128,21 +112,12 @@ function App() {
               
               {/* 404 */}
               <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </Layout>
+            </Route>
+          </Routes>
         </BrowserRouter>
       </ThemeProvider>
-      <ReactQueryDevtools initialIsOpen={false} />
     </QueryClientProvider>
   );
-}
-
-// Placeholder component for coming soon pages
-const ComingSoonPage: React.FC<{ title: string }> = ({ title }) => (
-  <div style={{ textAlign: 'center', padding: '4rem' }}>
-    <h2>{title}</h2>
-    <p style={{ color: '#666' }}>Ova stranica je u razvoju...</p>
-  </div>
-);
+};
 
 export default App;

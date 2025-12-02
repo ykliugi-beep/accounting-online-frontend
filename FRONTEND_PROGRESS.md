@@ -306,7 +306,7 @@ VITE_API_TIMEOUT=30000
 ## 📚 REFERENCE
 
 **Backend API:** http://localhost:5000/api/v1  
-**Frontend Spec:** Frontend-Agent-FINAL.md  
+**Frontend Spec:** AGENTS.md  
 **ERP Spec:** ERP-SPECIFIKACIJA-FINAL.md  
 **Backend Progress:** Backend repository IMPLEMENTATION-PROGRESS.md
 

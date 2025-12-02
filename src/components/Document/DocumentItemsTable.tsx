@@ -33,9 +33,9 @@ import {
   useReactTable,
   createColumnHelper,
 } from '@tanstack/react-table';
-import { DocumentLineItem, DocumentLineItemCreateDto } from '../../types';
+import { DocumentLineItemDto, CreateDocumentLineItemDto } from '../../types';
 import { useAutoSaveItems } from '../../hooks/useAutoSaveItems';
-import { useArticles, useTaxRates } from '../../hooks/useCombos';
+import { useArticles } from '../../hooks/useCombos';
 import { api } from '../../api';
 import { EditableCell, CellNavigationDirection } from './EditableCell';
 import { ConflictDialog } from './ConflictDialog';
@@ -50,7 +50,7 @@ const GRID_TEMPLATE_COLUMNS =
 const ROW_HEIGHT = 72;
 const FOCUSABLE_COLUMN_INDEXES = [1, 2, 3, 4, 5];
 
-const columnHelper = createColumnHelper<DocumentLineItem>();
+const columnHelper = createColumnHelper<DocumentLineItemDto>();
 
 const getNavigationKey = (rowIndex: number, columnIndex: number) =>
   `${rowIndex}-${columnIndex}`;
@@ -62,13 +62,13 @@ export const DocumentItemsTable: React.FC<DocumentItemsTableProps> = ({
   // STATE
   // ==========================================
 
-  const { items, setItems, addItem: addItemToStore, deleteItem: deleteItemFromStore, replaceItem } =
+  const { items, setItems, addItem, removeItem, updateItem } =
     useDocumentStore((state) => ({
       items: state.items,
       setItems: state.setItems,
       addItem: state.addItem,
-      deleteItem: state.deleteItem,
-      replaceItem: state.replaceItem,
+      removeItem: state.removeItem,
+      updateItem: state.updateItem,
     }));
   const { showConflictDialog, conflictData, openConflictDialog, closeConflictDialog } = useUIStore((state) => ({
     showConflictDialog: state.showConflictDialog,
@@ -84,11 +84,10 @@ export const DocumentItemsTable: React.FC<DocumentItemsTableProps> = ({
   const focusRefs = useRef<Map<string, HTMLElement>>(new Map());
   const listRef = useRef<FixedSizeListType>(null);
   const handledErrorItemsRef = useRef<Set<number>>(new Set());
-  const optimisticSnapshotsRef = useRef<Map<number, DocumentLineItem>>(new Map());
-  const lastKnownItemsRef = useRef<Map<number, DocumentLineItem>>(new Map());
+  const optimisticSnapshotsRef = useRef<Map<number, DocumentLineItemDto>>(new Map());
+  const lastKnownItemsRef = useRef<Map<number, DocumentLineItemDto>>(new Map());
 
   const { data: articles, isLoading: articlesLoading } = useArticles();
-  const { data: taxRates, isLoading: taxRatesLoading } = useTaxRates();
 
   const { autoSaveMap, debouncedSave, forceUpdateItem, refreshItem, initializeETags } =
     useAutoSaveItems({
@@ -139,11 +138,9 @@ export const DocumentItemsTable: React.FC<DocumentItemsTableProps> = ({
         const lastKnown = lastKnownItemsRef.current.get(state.id);
         if (snapshot || lastKnown) {
           const fallback = snapshot ?? lastKnown;
-          setItems((prev) =>
-            prev.map((item) =>
-              item.id === state.id && fallback
-                ? ({ ...fallback } as DocumentLineItem)
-                : item
+          setItems(
+            items.map((item) =>
+              item.id === state.id && fallback ? { ...fallback } : item
             )
           );
         }
@@ -158,9 +155,9 @@ export const DocumentItemsTable: React.FC<DocumentItemsTableProps> = ({
         (async () => {
           const refreshed = await refreshItem(state.id);
           if (refreshed) {
-            setItems((prev) =>
-              prev.map((item) =>
-                item.id === state.id ? (refreshed as DocumentLineItem) : item
+            setItems(
+              items.map((item) =>
+                item.id === state.id ? refreshed : item
               )
             );
             lastKnownItemsRef.current.set(state.id, { ...refreshed });
@@ -181,56 +178,53 @@ export const DocumentItemsTable: React.FC<DocumentItemsTableProps> = ({
 
   const handleValueChange = useCallback(
     (itemId: number, field: string, value: string | number) => {
-      setItems((prev) =>
-        prev.map((item) => {
-          if (item.id !== itemId) {
-            return item;
-          }
+      const item = items.find((i) => i.id === itemId);
+      if (!item) return;
 
-          if (!optimisticSnapshotsRef.current.has(itemId)) {
-            optimisticSnapshotsRef.current.set(itemId, { ...item });
-          }
+      if (!optimisticSnapshotsRef.current.has(itemId)) {
+        optimisticSnapshotsRef.current.set(itemId, { ...item });
+      }
 
-          return { ...item, [field]: value } as DocumentLineItem;
-        })
-      );
+      updateItem(itemId, { [field]: value });
       debouncedSave(itemId, field, value);
     },
-    [debouncedSave, setItems]
+    [debouncedSave, items, updateItem]
   );
 
   const handleAddItem = useCallback(async () => {
-    const newItem: DocumentLineItemCreateDto = {
+    const newItem: CreateDocumentLineItemDto = {
       articleId: 0,
       quantity: 1,
       invoicePrice: 0,
-      calculateTax: true,
+      discount: 0,
+      taxRateId: '01',
+      taxRatePercentage: 20,
+      unitOfMeasure: 'kom',
+      statusId: null,
+      notes: null,
     };
 
     try {
       const created = await api.lineItem.create(documentId, newItem);
-      setItems((prev) => [...prev, created as unknown as DocumentLineItem]);
-      lastKnownItemsRef.current.set(
-        created.id,
-        created as unknown as DocumentLineItem
-      );
+      addItem(created);
+      lastKnownItemsRef.current.set(created.id, created);
     } catch (err) {
       alert('Greška pri kreiranju stavke');
     }
-  }, [documentId, setItems]);
+  }, [documentId, addItem]);
 
   const handleDeleteItem = useCallback(
     async (itemId: number) => {
       try {
         await api.lineItem.delete(documentId, itemId);
-        setItems((prev) => prev.filter((item) => item.id !== itemId));
+        removeItem(itemId);
         lastKnownItemsRef.current.delete(itemId);
         setAnchorEl(null);
       } catch (err) {
         alert('Greška pri brisanju stavke');
       }
     },
-    [documentId, setItems]
+    [documentId, removeItem]
   );
 
   const handleMenuOpen = useCallback((event: React.MouseEvent<HTMLElement>, itemId: number) => {
@@ -246,21 +240,16 @@ export const DocumentItemsTable: React.FC<DocumentItemsTableProps> = ({
     if (conflictData?.itemId) {
       const refreshed = await refreshItem(conflictData.itemId);
       if (refreshed) {
-        setItems((prev) =>
-          prev.map((item) =>
-            item.id === conflictData.itemId
-              ? (refreshed as unknown as DocumentLineItem)
-              : item
+        setItems(
+          items.map((item) =>
+            item.id === conflictData.itemId ? refreshed : item
           )
         );
-        lastKnownItemsRef.current.set(
-          conflictData.itemId,
-          refreshed as unknown as DocumentLineItem
-        );
+        lastKnownItemsRef.current.set(conflictData.itemId, refreshed);
       }
     }
     closeConflictDialog();
-  }, [conflictData, refreshItem, setItems, closeConflictDialog]);
+  }, [conflictData, refreshItem, items, setItems, closeConflictDialog]);
 
   const handleConflictOverwrite = useCallback(async () => {
     if (conflictData?.itemId) {
@@ -275,15 +264,10 @@ export const DocumentItemsTable: React.FC<DocumentItemsTableProps> = ({
   const articleOptions = useMemo(
     () =>
       articles?.map((article) => ({
-        value: article.idArtikal,
-        label: article.nazivArtikla,
+        value: article.id,
+        label: article.name,
       })) ?? [],
     [articles]
-  );
-
-  const taxRateMap = useMemo(
-    () => new Map(taxRates?.map((rate) => [rate.idPoreskaStopa, rate.procenatPDV]) ?? []),
-    [taxRates]
   );
 
   const registerCellRef = useCallback(
@@ -370,7 +354,7 @@ export const DocumentItemsTable: React.FC<DocumentItemsTableProps> = ({
     [findFocusableColumn, focusCell, items.length]
   );
 
-  const columns = useMemo<ColumnDef<DocumentLineItem>[]>(() => {
+  const columns = useMemo(() => {
     return [
       columnHelper.display({
         id: 'id',
@@ -385,7 +369,7 @@ export const DocumentItemsTable: React.FC<DocumentItemsTableProps> = ({
         header: () => 'Artikal',
         cell: (info) => {
           const item = info.row.original;
-          const autoSaveState = autoSaveMap[item.id] || { status: 'idle' };
+          const autoSaveState = autoSaveMap[item.id] || { status: 'idle' as const };
           return (
             <EditableCell
               value={info.getValue() ?? ''}
@@ -410,7 +394,7 @@ export const DocumentItemsTable: React.FC<DocumentItemsTableProps> = ({
         header: () => 'Količina',
         cell: (info) => {
           const item = info.row.original;
-          const autoSaveState = autoSaveMap[item.id] || { status: 'idle' };
+          const autoSaveState = autoSaveMap[item.id] || { status: 'idle' as const };
           return (
             <EditableCell
               value={info.getValue() ?? 0}
@@ -434,7 +418,7 @@ export const DocumentItemsTable: React.FC<DocumentItemsTableProps> = ({
         header: () => 'Cena',
         cell: (info) => {
           const item = info.row.original;
-          const autoSaveState = autoSaveMap[item.id] || { status: 'idle' };
+          const autoSaveState = autoSaveMap[item.id] || { status: 'idle' as const };
           return (
             <EditableCell
               value={info.getValue() ?? 0}
@@ -454,40 +438,16 @@ export const DocumentItemsTable: React.FC<DocumentItemsTableProps> = ({
           );
         },
       }),
-      columnHelper.accessor('discountAmount', {
+      columnHelper.accessor('discount', {
         header: () => 'Rabat',
         cell: (info) => {
           const item = info.row.original;
-          const autoSaveState = autoSaveMap[item.id] || { status: 'idle' };
+          const autoSaveState = autoSaveMap[item.id] || { status: 'idle' as const };
           return (
             <EditableCell
               value={info.getValue() ?? 0}
               itemId={item.id}
-              field="discountAmount"
-              type="decimal"
-              onValueChange={handleValueChange}
-              status={autoSaveState.status}
-              error={autoSaveState.error}
-              inputRef={(element) =>
-                registerCellRef(info.row.index, info.column.getIndex(), element)
-              }
-              onMove={(direction) =>
-                handleNavigate(info.row.index, info.column.getIndex(), direction)
-              }
-            />
-          );
-        },
-      }),
-      columnHelper.accessor('marginAmount', {
-        header: () => 'Marža',
-        cell: (info) => {
-          const item = info.row.original;
-          const autoSaveState = autoSaveMap[item.id] || { status: 'idle' };
-          return (
-            <EditableCell
-              value={info.getValue() ?? 0}
-              itemId={item.id}
-              field="marginAmount"
+              field="discount"
               type="decimal"
               onValueChange={handleValueChange}
               status={autoSaveState.status}
@@ -503,14 +463,19 @@ export const DocumentItemsTable: React.FC<DocumentItemsTableProps> = ({
         },
       }),
       columnHelper.display({
+        id: 'margin',
+        header: () => 'Marža',
+        cell: () => (
+          <Typography variant="body2" align="right">
+            -
+          </Typography>
+        ),
+      }),
+      columnHelper.display({
         id: 'taxPercent',
         header: () => 'PDV %',
         cell: ({ row }) => {
-          const percent =
-            row.original.taxPercent ??
-            (row.original.taxRateId
-              ? taxRateMap.get(row.original.taxRateId)
-              : undefined) ?? 0;
+          const percent = row.original.taxRatePercentage ?? 0;
           return (
             <Typography variant="body2" align="right">
               {percent.toFixed(2)}%
@@ -523,7 +488,7 @@ export const DocumentItemsTable: React.FC<DocumentItemsTableProps> = ({
         header: () => 'PDV Iznos',
         cell: ({ row }) => (
           <Typography variant="body2" align="right">
-            {(row.original.taxAmount ?? 0).toFixed(2)}
+            {(row.original.vatAmount ?? 0).toFixed(2)}
           </Typography>
         ),
       }),
@@ -532,7 +497,7 @@ export const DocumentItemsTable: React.FC<DocumentItemsTableProps> = ({
         header: () => 'Ukupno',
         cell: ({ row }) => (
           <Typography variant="body2" fontWeight={600} align="right">
-            {(row.original.total ?? 0).toFixed(2)}
+            {(row.original.totalAmount ?? 0).toFixed(2)}
           </Typography>
         ),
       }),
@@ -545,7 +510,7 @@ export const DocumentItemsTable: React.FC<DocumentItemsTableProps> = ({
           </IconButton>
         ),
       }),
-    ];
+    ] as ColumnDef<DocumentLineItemDto>[];
   }, [
     articleOptions,
     autoSaveMap,
@@ -553,7 +518,6 @@ export const DocumentItemsTable: React.FC<DocumentItemsTableProps> = ({
     handleNavigate,
     handleValueChange,
     registerCellRef,
-    taxRateMap,
   ]);
 
   const table = useReactTable({
@@ -565,7 +529,7 @@ export const DocumentItemsTable: React.FC<DocumentItemsTableProps> = ({
   const rows = table.getRowModel().rows;
   const listHeight = Math.min(Math.max(rows.length, 1) * ROW_HEIGHT, 400);
 
-  if (isTableLoading || articlesLoading || taxRatesLoading) {
+  if (isTableLoading || articlesLoading) {
     return (
       <Box display="flex" justifyContent="center" p={3}>
         <CircularProgress />

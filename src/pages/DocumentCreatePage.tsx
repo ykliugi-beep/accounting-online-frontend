@@ -15,8 +15,14 @@ import { Save, ArrowBack } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import { api } from '../api';
-import { useCombos } from '../hooks/useCombos';
-import type { CreateDocumentDto } from '../types/api.types';
+import { useAllCombos } from '../hooks/useCombos';
+import type { 
+  CreateDocumentDto,
+  PartnerComboDto,
+  OrganizationalUnitComboDto,
+  ReferentComboDto,
+  TaxationMethodComboDto,
+} from '../types/api.types';
 
 const DOCUMENT_TYPES = [
   { code: 'UR', label: 'Ulazna Kalkulacija VP' },
@@ -29,13 +35,12 @@ export const DocumentCreatePage: React.FC = () => {
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
 
-  const {
-    partners,
-    organizationalUnits,
-    taxationMethods,
-    referents,
-    isLoading: combosLoading,
-  } = useCombos();
+  const { data: combosData, isLoading: combosLoading } = useAllCombos('UR');
+
+  const partners = combosData?.partners;
+  const organizationalUnits = combosData?.orgUnits;
+  const taxationMethods = combosData?.taxationMethods;
+  const referents = combosData?.referents;
 
   const [formData, setFormData] = useState<CreateDocumentDto>({
     documentTypeCode: 'UR',
@@ -160,7 +165,7 @@ export const DocumentCreatePage: React.FC = () => {
                 options={partners || []}
                 getOptionLabel={(option) => `${option.code} - ${option.name}`}
                 loading={combosLoading}
-                value={partners?.find((p) => p.id === formData.partnerId) || null}
+                value={partners?.find((p: PartnerComboDto) => p.id === formData.partnerId) || null}
                 onChange={(_, value) => handleChange('partnerId', value?.id || null)}
                 renderInput={(params) => (
                   <TextField {...params} label="Partner (Dobavljač)" placeholder="Izaberite partnera" />
@@ -174,7 +179,7 @@ export const DocumentCreatePage: React.FC = () => {
                 getOptionLabel={(option) => `${option.code} - ${option.name}`}
                 loading={combosLoading}
                 value={
-                  organizationalUnits?.find((ou) => ou.id === formData.organizationalUnitId) || null
+                  organizationalUnits?.find((ou: OrganizationalUnitComboDto) => ou.id === formData.organizationalUnitId) || null
                 }
                 onChange={(_, value) =>
                   handleChange('organizationalUnitId', value?.id || 0)
@@ -190,7 +195,7 @@ export const DocumentCreatePage: React.FC = () => {
                 options={referents || []}
                 getOptionLabel={(option) => `${option.code} - ${option.fullName}`}
                 loading={combosLoading}
-                value={referents?.find((r) => r.id === formData.referentId) || null}
+                value={referents?.find((r: ReferentComboDto) => r.id === formData.referentId) || null}
                 onChange={(_, value) => handleChange('referentId', value?.id || null)}
                 renderInput={(params) => (
                   <TextField {...params} label="Referent" placeholder="Izaberite referenta" />
@@ -204,7 +209,7 @@ export const DocumentCreatePage: React.FC = () => {
                 getOptionLabel={(option) => option.description}
                 loading={combosLoading}
                 value={
-                  taxationMethods?.find((tm) => tm.id === formData.taxationMethodId) || null
+                  taxationMethods?.find((tm: TaxationMethodComboDto) => tm.id === formData.taxationMethodId) || null
                 }
                 onChange={(_, value) => handleChange('taxationMethodId', value?.id || null)}
                 renderInput={(params) => (

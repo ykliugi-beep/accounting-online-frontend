@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Box, Paper, Tabs, Tab, Typography, Divider, Skeleton } from '@mui/material';
 import type { DocumentDto, DocumentLineItemDto } from '../../types/api.types';
-import { DocumentItemsTable } from '../DocumentItemsTable';
+import { DocumentItemsTable } from './DocumentItemsTable';
 import { DocumentHeader } from './DocumentHeader';
 import { DocumentCostsTable } from './DocumentCostsTable';
 

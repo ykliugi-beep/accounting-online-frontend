@@ -1,249 +1,188 @@
-import { useCallback, useRef, useEffect, useState } from 'react';
+import { useState, useCallback, useRef } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import {
-  DocumentLineItem,
-  DocumentLineItemPatchDto,
-  AutoSaveStatus,
-  ItemAutoSaveState,
+  SaveStatus,
+  DocumentLineItemDto,
+  PatchDocumentLineItemDto,
   AutoSaveStateMap,
-  ConflictResolutionAction,
 } from '../types';
-import { api } from '../api';  // FIXED: Import from index.ts instead of endpoints.ts
+import { api } from '../api';
 
-/**
- * KLJUCwNI HOOK za autosave sa ETag konkurentnosti
- *
- * WORKFLOW:
- * 1. User unese vrednost u celiju
- * 2. Hook postavi status na 'saving' sa 800ms debounce
- * 3. Posalje PATCH sa If-Match header-om (ETag)
- * 4. Ako OK (200) -> 'saved' status, novi ETag
- * 5. Ako 409 Conflict -> prikazi ConflictDialog
- * 6. User odabere 'refresh' ili 'overwrite'
- * 7. Nastavi sa novim ETag-om
- */
-
-interface UseAutoSaveItemsProps {
+interface UseAutoSaveItemsOptions {
   documentId: number;
-  onConflict?: (itemId: number, action: ConflictResolutionAction) => void;
-}
-
-// Helper function to handle 409 Conflict errors
-function handleConflict(error: any): { message: string; currentETag?: string } | null {
-  if (error?.status === 409 || error?.response?.status === 409) {
-    return {
-      message: error?.message || 'Dokument je promenjen od strane drugog korisnika',
-      currentETag: error?.response?.headers?.etag?.replace(/"/g, ''),
-    };
-  }
-  return null;
+  onConflict?: (itemId: number) => void;
 }
 
 export const useAutoSaveItems = ({
   documentId,
   onConflict,
-}: UseAutoSaveItemsProps) => {
-  // ==========================================
-  // STATE
-  // ==========================================
-
+}: UseAutoSaveItemsOptions) => {
+  const queryClient = useQueryClient();
   const [autoSaveMap, setAutoSaveMap] = useState<AutoSaveStateMap>({});
-  const debounceTimersRef = useRef<Map<number, NodeJS.Timeout>>(new Map());
-  const eTagsRef = useRef<Map<number, string>>(new Map());
+  const timerRefs = useRef<Map<number, NodeJS.Timeout>>(new Map());
+  const pendingChangesRef = useRef<Map<number, Partial<DocumentLineItemDto>>>(new Map());
 
-  // ==========================================
-  // INICIJALIZACIJA eTags
-  // ==========================================
-
-  const initializeETags = useCallback((items: DocumentLineItem[]) => {
-    eTagsRef.current.clear();
+  const initializeETags = useCallback((items: DocumentLineItemDto[]) => {
+    const newMap: AutoSaveStateMap = {};
     items.forEach((item) => {
-      eTagsRef.current.set(item.id, item.eTag);
+      newMap[item.id] = {
+        id: item.id,
+        status: 'idle',
+        error: null,
+        etag: item.etag,
+      };
     });
+    setAutoSaveMap(newMap);
   }, []);
 
-  // ==========================================
-  // AUTOSAVE FUNKCIJA sa 800ms debounce
-  // ==========================================
-
-  const saveItem = useCallback(
-    async (
-      itemId: number,
-      field: string,
-      value: number | string,
-      currentETag: string
-    ): Promise<void> => {
-      // Setuj status na 'saving'
+  const updateItemStatus = useCallback(
+    (itemId: number, status: SaveStatus, error: string | null = null) => {
       setAutoSaveMap((prev) => ({
         ...prev,
         [itemId]: {
+          ...prev[itemId],
           id: itemId,
-          status: 'saving',
-          eTag: currentETag,
+          status,
+          error,
         },
       }));
+    },
+    []
+  );
 
+  const debouncedSave = useCallback(
+    (itemId: number, field: string, value: string | number) => {
+      const existingTimer = timerRefs.current.get(itemId);
+      if (existingTimer) {
+        clearTimeout(existingTimer);
+      }
+
+      const currentChanges = pendingChangesRef.current.get(itemId) || {};
+      pendingChangesRef.current.set(itemId, {
+        ...currentChanges,
+        [field]: value,
+      });
+
+      updateItemStatus(itemId, 'saving');
+
+      const timer = setTimeout(async () => {
+        const changes = pendingChangesRef.current.get(itemId);
+        if (!changes) return;
+
+        try {
+          const currentETag = autoSaveMap[itemId]?.etag || '';
+          
+          // Filter out null values from statusId - backend doesn't accept null
+          const patchData: PatchDocumentLineItemDto = {};
+          Object.entries(changes).forEach(([key, val]) => {
+            if (key === 'statusId' && val === null) {
+              // Skip null statusId
+              return;
+            }
+            patchData[key as keyof PatchDocumentLineItemDto] = val as any;
+          });
+
+          const updated = await api.lineItem.patch(
+            documentId,
+            itemId,
+            patchData,
+            currentETag
+          );
+
+          setAutoSaveMap((prev) => ({
+            ...prev,
+            [itemId]: {
+              id: itemId,
+              status: 'saved',
+              error: null,
+              etag: updated.etag,
+            },
+          }));
+
+          pendingChangesRef.current.delete(itemId);
+
+          setTimeout(() => {
+            updateItemStatus(itemId, 'idle');
+          }, 2000);
+        } catch (err: unknown) {
+          if (typeof err === 'object' && err !== null && 'status' in err && err.status === 409) {
+            updateItemStatus(itemId, 'conflict', 'Stavka je izmenjena od drugog korisnika');
+            onConflict?.(itemId);
+          } else {
+            const message =
+              typeof err === 'object' && err !== null && 'message' in err
+                ? String(err.message)
+                : 'Greška pri čuvanju';
+            updateItemStatus(itemId, 'error', message);
+          }
+        }
+      }, 500);
+
+      timerRefs.current.set(itemId, timer);
+    },
+    [autoSaveMap, documentId, onConflict, updateItemStatus]
+  );
+
+  const forceUpdateItem = useCallback(
+    async (itemId: number, field: string, value: string | number) => {
       try {
-        // Konvertuj field u API format (camelCase -> camelCase)
-        const patchData: DocumentLineItemPatchDto = {
-          [field]: field.includes('Price')
-            ? parseFloat(String(value))
-            : field.includes('Quantity')
-              ? parseFloat(String(value))
-              : value,
-        };
+        updateItemStatus(itemId, 'saving');
+        const currentETag = autoSaveMap[itemId]?.etag || '';
+        const patchData: PatchDocumentLineItemDto = { [field]: value };
+        const updated = await api.lineItem.patch(documentId, itemId, patchData, currentETag);
 
-        // KRITICNO: Prosled If-Match sa trenutnim ETag-om
-        const response = await api.lineItem.patch(
-          documentId,
-          itemId,
-          patchData,
-          currentETag
-        );
-
-        // Ekstraktuj novi ETag iz response-a
-        const newETag = response.eTag;
-        eTagsRef.current.set(itemId, newETag);
-
-        // Setuj status na 'saved'
         setAutoSaveMap((prev) => ({
           ...prev,
           [itemId]: {
             id: itemId,
             status: 'saved',
-            eTag: newETag,
-            lastSavedAt: new Date().toISOString(),
+            error: null,
+            etag: updated.etag,
           },
         }));
 
-        // Auto-reset status na 'idle' nakon 2 sekunde
-        setTimeout(() => {
-          setAutoSaveMap((prev) => ({
-            ...prev,
-            [itemId]: {
-              ...prev[itemId],
-              status: 'idle',
-            },
-          }));
-        }, 2000);
-      } catch (error) {
-        // Hendluj 409 Conflict posebno
-        const conflictData = handleConflict(error);
-        if (conflictData) {
-          console.warn('409 Conflict:', conflictData);
-
-          // Setuj novi ETag iz response-a
-          if (conflictData.currentETag) {
-            eTagsRef.current.set(itemId, conflictData.currentETag);
-          }
-
-          setAutoSaveMap((prev) => ({
-            ...prev,
-            [itemId]: {
-              id: itemId,
-              status: 'error',
-              error: conflictData.message,
-              eTag: conflictData.currentETag || currentETag,
-            },
-          }));
-
-          // Pozovi callback za 409 Conflict - prikazi ConflictDialog
-          if (onConflict) {
-            onConflict(itemId, 'refresh');
-          }
-        } else {
-          // Ostale greske
-          const errorMessage =
-            typeof error === 'object' && error !== null && 'message' in error
-              ? (error as { message: string }).message
-              : 'Greska pri cuvanju';
-
-          setAutoSaveMap((prev) => ({
-            ...prev,
-            [itemId]: {
-              id: itemId,
-              status: 'error',
-              error: errorMessage,
-              eTag: currentETag,
-            },
-          }));
-        }
+        queryClient.invalidateQueries(['lineItems', documentId]);
+      } catch (err: unknown) {
+        const message =
+          typeof err === 'object' && err !== null && 'message' in err
+            ? String(err.message)
+            : 'Greška pri čuvanju';
+        updateItemStatus(itemId, 'error', message);
       }
     },
-    [documentId, onConflict]
+    [autoSaveMap, documentId, queryClient, updateItemStatus]
   );
-
-  // ==========================================
-  // DEBOUNCE WRAPPER - 800ms
-  // ==========================================
-
-  const debouncedSave = useCallback(
-    (itemId: number, field: string, value: number | string): void => {
-      // Ocisti prethodni timeout za ovu stavku
-      const existingTimer = debounceTimersRef.current.get(itemId);
-      if (existingTimer) {
-        clearTimeout(existingTimer);
-      }
-
-      // Postavi novi timeout sa 800ms debounce-om
-      const newTimer = setTimeout(() => {
-        const currentETag = eTagsRef.current.get(itemId) || '';
-        saveItem(itemId, field, value, currentETag);
-        debounceTimersRef.current.delete(itemId);
-      }, 800);
-
-      debounceTimersRef.current.set(itemId, newTimer);
-    },
-    [saveItem]
-  );
-
-  // ==========================================
-  // FORCE UPDATE - za 'overwrite' akciju
-  // ==========================================
-
-  const forceUpdateItem = useCallback(
-    async (
-      itemId: number,
-      field: string,
-      value: number | string
-    ): Promise<void> => {
-      const currentETag = eTagsRef.current.get(itemId) || '';
-      await saveItem(itemId, field, value, currentETag);
-    },
-    [saveItem]
-  );
-
-  // ==========================================
-  // REFRESH ITEM - za 'refresh' akciju
-  // ==========================================
 
   const refreshItem = useCallback(
-    async (itemId: number): Promise<DocumentLineItem | null> => {
+    async (itemId: number): Promise<DocumentLineItemDto | null> => {
       try {
-        const item = await api.lineItem.get(documentId, itemId);
-        eTagsRef.current.set(itemId, item.eTag);
-        return item;
-      } catch (error) {
-        console.error('Error refreshing item:', error);
+        const items = await api.lineItem.list(documentId);
+        const refreshed = items.find((item) => item.id === itemId);
+
+        if (refreshed) {
+          setAutoSaveMap((prev) => ({
+            ...prev,
+            [itemId]: {
+              id: itemId,
+              status: 'idle',
+              error: null,
+              etag: refreshed.etag,
+            },
+          }));
+          return refreshed;
+        }
+        return null;
+      } catch (err: unknown) {
+        const message =
+          typeof err === 'object' && err !== null && 'message' in err
+            ? String(err.message)
+            : 'Greška pri osvežavanju';
+        updateItemStatus(itemId, 'error', message);
         return null;
       }
     },
-    [documentId]
+    [documentId, updateItemStatus]
   );
-
-  // ==========================================
-  // CLEANUP - ocisti timeout-e
-  // ==========================================
-
-  useEffect(() => {
-    return () => {
-      debounceTimersRef.current.forEach((timer) => clearTimeout(timer));
-      debounceTimersRef.current.clear();
-    };
-  }, []);
-
-  // ==========================================
-  // RETURN
-  // ==========================================
 
   return {
     autoSaveMap,
@@ -251,8 +190,5 @@ export const useAutoSaveItems = ({
     forceUpdateItem,
     refreshItem,
     initializeETags,
-    getItemETag: (itemId: number) => eTagsRef.current.get(itemId) || '',
   };
 };
-
-export default useAutoSaveItems;
