@@ -105,12 +105,13 @@ export const useReferents = (): UseQueryResult<ReferentComboDto[], unknown> => {
 };
 
 /**
- * SP 5: ND dokumenti
+ * SP 5: ND dokumenti (Narudzbenice)
+ * Za "POVEZANA AMBALAŽA" dropdown - povezuje UR sa ND
  */
 export const useDocumentsND = (): UseQueryResult<ReferenceDocumentComboDto[], unknown> => {
   return useQuery(
     queryKeys.documentsND,
-    async () => api.lookup.getReferenceDocuments('ND'),
+    async () => api.lookup.getReferenceDocuments(),
     {
       staleTime: 5 * 60 * 1000,
       cacheTime: 30 * 60 * 1000,
@@ -248,7 +249,7 @@ export const useAllCombos = (
         api.lookup.getOrganizationalUnits(docTypeId),
         api.lookup.getTaxationMethods(),
         api.lookup.getReferents(),
-        api.lookup.getReferenceDocuments('ND'),
+        api.lookup.getReferenceDocuments(),  // ✅ No parameter - endpoint is /lookups/documents-nd
         api.lookup.getTaxRates(),
         api.lookup.getArticles(),
         api.lookup.getCostTypes(),
