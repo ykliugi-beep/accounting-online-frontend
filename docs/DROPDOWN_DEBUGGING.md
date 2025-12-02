@@ -2,15 +2,15 @@
 
 ## 💡 Problem Description
 
-Dropdown fields on `DocumentCreatePage` show **"No options"** despite Backend API returning data successfully (confirmed with 200 OK status in audit log).
+Dropdown fields on `DocumentCreatePage` show **"No options"** despite Backend API returning data successfully.
 
 ---
 
-## 👀 Visual Checklist
+## 👀 Quick Checklist
 
-### 1. Open Browser Console (F12 → Console)
+### 1. Open Browser Console (F12)
 
-**Expected console output when everything works:**
+**Expected output when everything works:**
 
 ```javascript
 📦 Combos Data Received: {
@@ -18,99 +18,57 @@ Dropdown fields on `DocumentCreatePage` show **"No options"** despite Backend AP
   orgUnits: Array(3),
   taxationMethods: Array(2),
   referents: Array(10),
-  documentsND: Array(0),
+  documentsND: Array(X),  // ← Should have data!
   taxRates: Array(3),
   articles: Array(50),
-  costTypes: Array(4),
-  costDistributionMethods: Array(3)
+  ...
 }
 
-👥 Partners: [
-  {id: 1, code: "P001", name: "Partner A", statusNabavka: "Aktivan"},
-  {id: 2, code: "P002", name: "Partner B", statusNabavka: "Aktivan"},
-  ...
-]
-
-🏪 Org Units: [
-  {id: 1, code: "M1", name: "Magacin 1"},
-  {id: 2, code: "M2", name: "Magacin 2"},
-  ...
-]
-
-💼 Taxation Methods: [
-  {id: 1, description: "Opšte"},
-  {id: 2, description: "Posebno"},
-  ...
-]
-
-👤 Referents: [
-  {id: 1, code: "R001", fullName: "John Doe"},
-  {id: 2, code: "R002", fullName: "Jane Smith"},
-  ...
-]
+👥 Partners: [{id: 1, code: "P001", name: "Partner A"}, ...]
+🏪 Org Units: [{id: 1, code: "M1", name: "Magacin 1"}, ...]
+💼 Taxation Methods: [{id: 1, description: "Opšte"}, ...]
+👤 Referents: [{id: 1, code: "R001", fullName: "John Doe"}, ...]
+📄 Documents ND: [{id: 1, documentNumber: "ND-2025-001"}, ...]
 ```
 
 ---
 
-## 🐞 Common Problems & Solutions
+## 🐞 Common Problems
 
 ### Problem 1: Empty Arrays
 
 **Console shows:**
 ```javascript
-📦 Combos Data Received: {
-  partners: [],  // ← Empty!
-  orgUnits: [],  // ← Empty!
-  ...
-}
+📦 Combos Data Received: { partners: [], orgUnits: [], ... }
 ```
 
-**🔴 Root Cause:** Database is empty or Stored Procedures not returning data
+**🔴 Root Cause:** Database is empty
 
-**✅ Solution:**
+**✅ Solution:** Check database has data
 
-1. **Check database:**
-   ```sql
-   SELECT COUNT(*) FROM tblPartner WHERE StatusNabavka = 'Aktivan'
-   SELECT COUNT(*) FROM tblOrganizacionaJedinica
-   SELECT COUNT(*) FROM tblZaposleni WHERE Status = 'Aktivan'
-   ```
-
-2. **Test Stored Procedures directly:**
-   ```sql
-   EXEC spPartnerComboStatusNabavka
-   EXEC spOrganizacionaJedinicaCombo @Dokument_Tip_ID = 1
-   EXEC spReferentCombo
-   ```
+```sql
+SELECT COUNT(*) FROM tblPartner WHERE StatusNabavka = 'Aktivan'
+SELECT COUNT(*) FROM tblOrganizacionaJedinica
+SELECT COUNT(*) FROM tblZaposleni WHERE Status = 'Aktivan'
+```
 
 ---
 
-### Problem 2: CORS / Network Error
+### Problem 2: Network Error
 
 **Console shows:**
 ```javascript
-❌ Combos Error: {
-  status: 0,
-  message: "Network error - no response from server"
-}
+❌ Combos Error: { status: 0, message: "Network error" }
 ```
-
-**🔴 Root Cause:** Backend not running or CORS misconfigured
 
 **✅ Solution:**
 
-1. **Check Backend is running:**
+1. Check Backend is running:
    ```bash
    curl http://localhost:5286/swagger
    ```
 
-2. **Check HTTPS redirect is DISABLED in `Program.cs`:**
-   ```csharp
-   // ✅ Correct
-   if (!app.Environment.IsDevelopment()) {
-       app.UseHttpsRedirection();
-   }
-   ```
+2. Check CORS configuration in `Program.cs`
 
 ---
 
@@ -118,45 +76,30 @@ Dropdown fields on `DocumentCreatePage` show **"No options"** despite Backend AP
 
 **Console shows:**
 ```javascript
-❌ Combos Error: {
-  status: 401,
-  message: "Unauthorized"
-}
+❌ Combos Error: { status: 401, message: "Unauthorized" }
 ```
 
 **✅ Solution:**
 
-1. **Generate new token:**
-   ```bash
-   curl http://localhost:5286/api/v1/auth/test-token
-   ```
-
-2. **Update `.env.local`:**
+1. Generate new JWT token
+2. Update `.env.local`:
    ```bash
    VITE_JWT_TOKEN=your-token-here
    ```
-
-3. **Restart Frontend**
+3. Restart Frontend
 
 ---
 
-## 🧪 Testing Checklist
+## 🧪 Testing Steps
 
-### Before Testing:
-
-- [ ] Backend PR #229 merged
-- [ ] Backend running on `http://localhost:5286`
-- [ ] Frontend `.env.local` has valid JWT token
-- [ ] Browser Console open (F12)
-
-### Testing Steps:
-
-1. [ ] Navigate to `http://localhost:3000/documents/vp/ur`
-2. [ ] Check Console for `📦 Combos Data Received`
-3. [ ] Verify arrays have data
-4. [ ] Check dropdowns populate
+1. [ ] Backend running on `http://localhost:5286`
+2. [ ] Frontend running on `http://localhost:3000`
+3. [ ] Navigate to `/documents/vp/ur`
+4. [ ] Open Console (F12)
+5. [ ] Check for `📦 Combos Data Received`
+6. [ ] Verify dropdown options appear
 
 ---
 
 **Last Updated:** 2025-12-02  
-**Related PR:** #34
+**Related PR:** #35
