@@ -7,11 +7,8 @@ import {
   Typography,
   Button,
   Paper,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemIcon,
-  Divider,
+  CircularProgress,
+  Alert,
 } from '@mui/material';
 import {
   Description,
@@ -22,6 +19,8 @@ import {
   Assessment,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import { api } from '@/api';
 
 interface QuickStat {
   title: string;
@@ -33,38 +32,25 @@ interface QuickStat {
 export const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
 
-  const quickStats: QuickStat[] = [
-    {
-      title: 'Dokumenti ovog meseca',
-      value: 145,
-      icon: <Description />,
-      color: '#2196f3',
+  // Fetch dashboard stats from API
+  const { data: stats, isLoading: statsLoading, error: statsError } = useQuery({
+    queryKey: ['dashboard-stats'],
+    queryFn: async () => {
+      // TODO: Replace with actual API endpoint when available
+      // const response = await api.dashboard.getStats();
+      // return response;
+      return null;
     },
-    {
-      title: 'Vrednost prometa',
-      value: '2.450.000 RSD',
-      icon: <TrendingUp />,
-      color: '#4caf50',
-    },
-    {
-      title: 'Stavki na lageru',
-      value: 1247,
-      icon: <Inventory />,
-      color: '#ff9800',
-    },
-    {
-      title: 'Dugovanja',
-      value: '850.000 RSD',
-      icon: <AccountBalance />,
-      color: '#f44336',
-    },
-  ];
+  });
 
-  const recentDocuments = [
-    { id: 1, number: 'UR-2025-001', type: 'Ulazna Kalkulacija', date: '28.11.2025', amount: 125000 },
-    { id: 2, number: 'RO-2025-042', type: 'Račun Otpremnica', date: '27.11.2025', amount: 85000 },
-    { id: 3, number: 'UR-2025-002', type: 'Ulazna Kalkulacija', date: '26.11.2025', amount: 210000 },
-  ];
+  // Fetch recent documents from API
+  const { data: recentDocs, isLoading: docsLoading, error: docsError } = useQuery({
+    queryKey: ['recent-documents'],
+    queryFn: async () => {
+      const response = await api.document.list({ pageNumber: 1, pageSize: 5 });
+      return response.items || [];
+    },
+  });
 
   const quickActions = [
     {
@@ -104,43 +90,18 @@ export const DashboardPage: React.FC = () => {
         </Typography>
       </Box>
 
-      {/* Quick Stats */}
-      <Grid container spacing={3} sx={{ mb: 4 }}>
-        {quickStats.map((stat, index) => (
-          <Grid item xs={12} sm={6} md={3} key={index}>
-            <Card
-              sx={{
-                height: '100%',
-                borderLeft: 4,
-                borderColor: stat.color,
-              }}
-            >
-              <CardContent>
-                <Box display="flex" justifyContent="space-between" alignItems="center">
-                  <Box>
-                    <Typography variant="body2" color="text.secondary" gutterBottom>
-                      {stat.title}
-                    </Typography>
-                    <Typography variant="h5" fontWeight="bold">
-                      {stat.value}
-                    </Typography>
-                  </Box>
-                  <Box
-                    sx={{
-                      backgroundColor: `${stat.color}20`,
-                      borderRadius: 2,
-                      p: 1.5,
-                      color: stat.color,
-                    }}
-                  >
-                    {stat.icon}
-                  </Box>
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-        ))}
-      </Grid>
+      {/* Quick Stats - Only show if API is available */}
+      {statsLoading && (
+        <Box display="flex" justifyContent="center" my={4}>
+          <CircularProgress />
+        </Box>
+      )}
+
+      {statsError && (
+        <Alert severity="info" sx={{ mb: 4 }}>
+          Statistika trenutno nije dostupna. Koristite brze akcije ispod za rad sa dokumentima.
+        </Alert>
+      )}
 
       <Grid container spacing={3}>
         {/* Quick Actions */}
@@ -174,29 +135,79 @@ export const DashboardPage: React.FC = () => {
             <Typography variant="h6" gutterBottom fontWeight="bold">
               Nedavni Dokumenti
             </Typography>
-            <List>
-              {recentDocuments.map((doc, index) => (
-                <React.Fragment key={doc.id}>
-                  <ListItem
-                    button
-                    onClick={() => navigate(`/documents/${doc.id}`)}
-                    sx={{ px: 0 }}
-                  >
-                    <ListItemIcon>
-                      <Description color="primary" />
-                    </ListItemIcon>
-                    <ListItemText
-                      primary={`${doc.number} - ${doc.type}`}
-                      secondary={`${doc.date} • ${doc.amount.toLocaleString('sr-RS')} RSD`}
-                    />
-                  </ListItem>
-                  {index < recentDocuments.length - 1 && <Divider />}
-                </React.Fragment>
-              ))}
-            </List>
-            <Button fullWidth variant="text" sx={{ mt: 2 }} onClick={() => navigate('/documents')}>
-              Vidi sve dokumente
-            </Button>
+
+            {docsLoading && (
+              <Box display="flex" justifyContent="center" my={4}>
+                <CircularProgress size={32} />
+              </Box>
+            )}
+
+            {docsError && (
+              <Alert severity="info" sx={{ mt: 2 }}>
+                Dokumenti trenutno nisu dostupni.
+              </Alert>
+            )}
+
+            {!docsLoading && !docsError && recentDocs && recentDocs.length === 0 && (
+              <Box sx={{ textAlign: 'center', py: 4 }}>
+                <Typography color="text.secondary">
+                  Nema nedavnih dokumenata.
+                </Typography>
+                <Button
+                  variant="contained"
+                  startIcon={<Add />}
+                  onClick={() => navigate('/documents/vp/ur')}
+                  sx={{ mt: 2 }}
+                >
+                  Kreiraj prvi dokument
+                </Button>
+              </Box>
+            )}
+
+            {!docsLoading && !docsError && recentDocs && recentDocs.length > 0 && (
+              <>
+                <Box sx={{ mt: 2 }}>
+                  {recentDocs.map((doc: any) => (
+                    <Card
+                      key={doc.id}
+                      sx={{
+                        mb: 2,
+                        cursor: 'pointer',
+                        '&:hover': { bgcolor: 'action.hover' },
+                      }}
+                      onClick={() => navigate(`/documents/${doc.id}`)}
+                    >
+                      <CardContent>
+                        <Box display="flex" alignItems="center" gap={2}>
+                          <Description color="primary" />
+                          <Box flex={1}>
+                            <Typography variant="subtitle1" fontWeight="medium">
+                              {doc.documentNumber || 'N/A'}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              {doc.documentType} • {doc.documentDate}
+                            </Typography>
+                          </Box>
+                          {doc.totalAmount && (
+                            <Typography variant="body1" fontWeight="medium">
+                              {doc.totalAmount.toLocaleString('sr-RS')} RSD
+                            </Typography>
+                          )}
+                        </Box>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </Box>
+                <Button
+                  fullWidth
+                  variant="text"
+                  sx={{ mt: 2 }}
+                  onClick={() => navigate('/documents')}
+                >
+                  Vidi sve dokumente
+                </Button>
+              </>
+            )}
           </Paper>
         </Grid>
       </Grid>
