@@ -18,7 +18,7 @@ import { api } from '../api';
  * Custom hook za sve 11 Stored Procedures
  * Koristi React Query za kesiranje i automatsku invalidaciju
  * 
- * SYNTAX: TanStack Query v4.36.1 positional arguments
+ * SYNTAX: TanStack Query v4.36.1 positional arguments with cacheTime
  */
 
 // ==========================================
@@ -52,7 +52,7 @@ export const usePartners = (): UseQueryResult<PartnerComboDto[], unknown> => {
     async () => api.lookup.getPartners(),
     {
       staleTime: 5 * 60 * 1000, // 5 minuta
-      gcTime: 30 * 60 * 1000, // 30 minuta (v4: gcTime replaces cacheTime)
+      cacheTime: 30 * 60 * 1000, // 30 minuta
     }
   );
 };
@@ -68,7 +68,7 @@ export const useOrgUnits = (
     async () => api.lookup.getOrganizationalUnits(docTypeId),
     {
       staleTime: 5 * 60 * 1000,
-      gcTime: 30 * 60 * 1000,
+      cacheTime: 30 * 60 * 1000,
     }
   );
 };
@@ -85,7 +85,7 @@ export const useTaxationMethods = (): UseQueryResult<
     async () => api.lookup.getTaxationMethods(),
     {
       staleTime: 10 * 60 * 1000,
-      gcTime: 60 * 60 * 1000,
+      cacheTime: 60 * 60 * 1000,
     }
   );
 };
@@ -99,7 +99,7 @@ export const useReferents = (): UseQueryResult<ReferentComboDto[], unknown> => {
     async () => api.lookup.getReferents(),
     {
       staleTime: 10 * 60 * 1000,
-      gcTime: 60 * 60 * 1000,
+      cacheTime: 60 * 60 * 1000,
     }
   );
 };
@@ -113,7 +113,7 @@ export const useDocumentsND = (): UseQueryResult<ReferenceDocumentComboDto[], un
     async () => api.lookup.getReferenceDocuments('ND'),
     {
       staleTime: 5 * 60 * 1000,
-      gcTime: 30 * 60 * 1000,
+      cacheTime: 30 * 60 * 1000,
     }
   );
 };
@@ -127,7 +127,7 @@ export const useTaxRates = (): UseQueryResult<TaxRateComboDto[], unknown> => {
     async () => api.lookup.getTaxRates(),
     {
       staleTime: 10 * 60 * 1000,
-      gcTime: 60 * 60 * 1000,
+      cacheTime: 60 * 60 * 1000,
     }
   );
 };
@@ -141,7 +141,7 @@ export const useArticles = (): UseQueryResult<ArticleComboDto[], unknown> => {
     async () => api.lookup.getArticles(),
     {
       staleTime: 5 * 60 * 1000,
-      gcTime: 30 * 60 * 1000,
+      cacheTime: 30 * 60 * 1000,
     }
   );
 };
@@ -157,7 +157,7 @@ export const useDocumentCosts = (
     async () => api.cost.list(documentId),
     {
       staleTime: 2 * 60 * 1000,
-      gcTime: 10 * 60 * 1000,
+      cacheTime: 10 * 60 * 1000,
       enabled: !!documentId, // Samo ako je documentId proslezen
     }
   );
@@ -172,7 +172,7 @@ export const useCostTypes = (): UseQueryResult<CostTypeComboDto[], unknown> => {
     async () => api.lookup.getCostTypes(),
     {
       staleTime: 10 * 60 * 1000,
-      gcTime: 60 * 60 * 1000,
+      cacheTime: 60 * 60 * 1000,
     }
   );
 };
@@ -189,7 +189,7 @@ export const useCostDistributionMethods = (): UseQueryResult<
     async () => api.lookup.getCostDistributionMethods(),
     {
       staleTime: Infinity, // Nikad se ne menja
-      gcTime: Infinity,
+      cacheTime: Infinity,
     }
   );
 };
@@ -205,7 +205,7 @@ export const useCostArticles = (
     async () => api.lineItem.list(documentId),
     {
       staleTime: 2 * 60 * 1000,
-      gcTime: 10 * 60 * 1000,
+      cacheTime: 10 * 60 * 1000,
       enabled: !!documentId,
     }
   );
@@ -269,7 +269,7 @@ export const useAllCombos = (
     },
     {
       staleTime: 5 * 60 * 1000,
-      gcTime: 30 * 60 * 1000,
+      cacheTime: 30 * 60 * 1000,
     }
   );
 };
