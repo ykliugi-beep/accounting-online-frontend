@@ -71,12 +71,15 @@ export const lookupApi = {
   },
 
   /**
-   * GET /api/v1/lookups/reference-documents?type=ND
+   * GET /api/v1/lookups/documents-nd
    * Stored Procedure: spDokumentNDCombo
+   * 
+   * ⚠️ IMPORTANT: Backend endpoint is /lookups/documents-nd (no query params)
+   * Returns list of ND (Narudzbenica) documents for "POVEZANA AMBALAŽA" dropdown.
+   * This links Purchase Orders (ND) to Inbound Invoices (UR).
    */
-  getReferenceDocuments: async (type: string = 'ND'): Promise<ReferenceDocumentComboDto[]> => {
-    const url = buildUrl('/lookups/reference-documents', { type });
-    const response = await apiClient.get<ReferenceDocumentComboDto[]>(url);
+  getReferenceDocuments: async (): Promise<ReferenceDocumentComboDto[]> => {
+    const response = await apiClient.get<ReferenceDocumentComboDto[]>('/lookups/documents-nd');
     return response.data;
   },
 
@@ -406,5 +409,5 @@ export default {
   document: documentApi,
   lineItem: documentLineItemApi,
   cost: documentCostApi,
-  costItem: documentCostItemApi,
+  costItem: documentCostItemApi
 };
