@@ -50,7 +50,7 @@ export interface TaxationMethodComboDto {
 
 export interface ReferentComboDto {
   idRadnik: number;                 // IdRadnik
-  imeRadnika: string;               // ImeRadnika
+  imePrezime: string;               // ImePrezime (matches backend DTO and SQL alias "IME I PREZIME")
   sifraRadnika: string | null;      // SifraRadnika
   /** @deprecated Legacy fields for backward compatibility */
   id?: number;
@@ -73,7 +73,7 @@ export interface ReferenceDocumentComboDto {
 export interface TaxRateComboDto {
   idPoreskaStopa: string;           // IdPoreskaStopa - char(2): "01", "02", "03"
   naziv: string;                    // Naziv
-  procenat: number;                 // Procenat (percentage value)
+  procenatPoreza: number;           // ProcenatPoreza (matches backend DTO)
   /** @deprecated Legacy fields for backward compatibility */
   id?: string;
   name?: string;
