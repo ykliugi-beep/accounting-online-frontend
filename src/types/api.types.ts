@@ -15,6 +15,12 @@ export interface PartnerComboDto {
   obracunPorez: number;             // ObracunPorez (0 or 1)
   idReferent: number | null;        // IdReferent
   sifraPartner: string | null;      // SifraPartner
+  /** @deprecated Legacy fields for backward compatibility */
+  id?: number;
+  code?: string;
+  name?: string;
+  city?: string;
+  statusName?: string;
 }
 
 export interface OrganizationalUnitComboDto {
@@ -22,6 +28,11 @@ export interface OrganizationalUnitComboDto {
   naziv: string;                    // Naziv
   mesto: string | null;             // Mesto
   sifra: string | null;             // Sifra
+  /** @deprecated Legacy fields for backward compatibility */
+  id?: number;
+  name?: string;
+  code?: string;
+  city?: string;
 }
 
 export interface TaxationMethodComboDto {
@@ -30,12 +41,21 @@ export interface TaxationMethodComboDto {
   obracunAkciza: number;            // ObracunAkciza (0 or 1)
   obracunPorez: number;             // ObracunPorez (0 or 1)
   obracunPorezPomocni: number;      // ObracunPorezPomocni (0 or 1)
+  /** @deprecated Legacy fields for backward compatibility */
+  id?: number;
+  description?: string;
+  calculateExcise?: boolean;
+  calculateTax?: boolean;
 }
 
 export interface ReferentComboDto {
   idRadnik: number;                 // IdRadnik
   imeRadnika: string;               // ImeRadnika
   sifraRadnika: string | null;      // SifraRadnika
+  /** @deprecated Legacy fields for backward compatibility */
+  id?: number;
+  fullName?: string;
+  code?: string;
 }
 
 export interface ReferenceDocumentComboDto {
@@ -43,11 +63,21 @@ export interface ReferenceDocumentComboDto {
   brojDokumenta: string;            // BrojDokumenta
   datum: string;                    // Datum (ISO 8601)
   nazivPartnera: string;            // NazivPartnera
+  /** @deprecated Legacy fields for backward compatibility */
+  id?: number;
+  documentNumber?: string;
+  date?: string;
+  partnerName?: string;
 }
 
 export interface TaxRateComboDto {
   idPoreskaStopa: string;           // IdPoreskaStopa - char(2): "01", "02", "03"
   naziv: string;                    // Naziv
+  procenat: number;                 // Procenat (percentage value)
+  /** @deprecated Legacy fields for backward compatibility */
+  id?: string;
+  name?: string;
+  percentage?: number;
 }
 
 export interface ArticleComboDto {
@@ -62,6 +92,11 @@ export interface ArticleComboDto {
   imaLot: boolean;                  // ImaLot
   otkupnaCena: number | null;       // OtkupnaCena
   poljoprivredniProizvod: boolean;  // PoljoprivredniProizvod
+  /** @deprecated Legacy fields for backward compatibility */
+  id?: number;
+  code?: string;
+  name?: string;
+  unitOfMeasure?: string;
 }
 
 export interface CostTypeComboDto {
