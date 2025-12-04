@@ -68,7 +68,8 @@ export const DocumentHeader: React.FC<DocumentHeaderProps> = ({ document, onChan
       const firstRate = taxRates[0];
       const taxRateId = firstRate.idPoreskaStopa ?? firstRate.id;
       const taxRateName = firstRate.naziv ?? firstRate.name ?? '';
-      const taxRatePercentage = firstRate.procenat ?? firstRate.percentage ?? 0;
+      const taxRatePercentage =
+        firstRate.procenatPoreza ?? firstRate.procenat ?? firstRate.percentage ?? 0;
       setAdvanceVATItems([...advanceVATItems, {
         taxRateId,
         taxRateName,
@@ -239,7 +240,7 @@ export const DocumentHeader: React.FC<DocumentHeaderProps> = ({ document, onChan
             options={referents || []}
             getOptionLabel={(option) => {
               const code = option.sifraRadnika ?? option.code ?? 'N/A';
-              const name = option.imeRadnika ?? option.fullName ?? '';
+              const name = option.imePrezime ?? option.imeRadnika ?? option.fullName ?? '';
               return `${code} - ${name}`;
             }}
             loading={combosLoading}
@@ -450,7 +451,8 @@ export const DocumentHeader: React.FC<DocumentHeaderProps> = ({ document, onChan
                               if (value) {
                                 const id = value.idPoreskaStopa ?? value.id;
                                 const name = value.naziv ?? value.name ?? '';
-                                const percentage = value.procenat ?? value.percentage ?? 0;
+                                const percentage =
+                                  value.procenatPoreza ?? value.procenat ?? value.percentage ?? 0;
                                 handleAdvanceVATChange(index, 'taxRateId', id);
                                 handleAdvanceVATChange(index, 'taxRateName', name);
                                 handleAdvanceVATChange(index, 'taxRatePercentage', percentage);
