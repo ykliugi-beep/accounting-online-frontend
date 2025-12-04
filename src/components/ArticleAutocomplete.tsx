@@ -1,6 +1,5 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Autocomplete, TextField, CircularProgress, Box, Typography } from '@mui/material';
-import { debounce } from 'lodash';
 import { ArticleComboDto } from '../types/api.types';
 import { useArticleSearch } from '../hooks/useArticleSearch';
 
@@ -56,18 +55,27 @@ export const ArticleAutocomplete: React.FC<ArticleAutocompleteProps> = ({
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+  const debounceTimer = useRef<NodeJS.Timeout | null>(null);
 
-  // Debounce funkcija - čeka 300ms pre nego što pozove search
-  const debouncedSetSearch = useCallback(
-    debounce((term: string) => {
-      setDebouncedSearchTerm(term);
-    }, 300),
-    []
-  );
+  // Custom debounce - čeka 300ms pre nego što pozove search
+  useEffect(() => {
+    if (debounceTimer.current) {
+      clearTimeout(debounceTimer.current);
+    }
+
+    debounceTimer.current = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 300);
+
+    return () => {
+      if (debounceTimer.current) {
+        clearTimeout(debounceTimer.current);
+      }
+    };
+  }, [searchTerm]);
 
   const handleInputChange = (_: React.SyntheticEvent, newValue: string) => {
     setSearchTerm(newValue);
-    debouncedSetSearch(newValue);
   };
 
   // React Query hook - automatski kešira rezultate
