@@ -48,6 +48,7 @@ export interface ReferenceDocumentComboDto {
 export interface TaxRateComboDto {
   idPoreskaStopa: string;           // IdPoreskaStopa - char(2): "01", "02", "03"
   naziv: string;                    // Naziv
+  procenatPoreza: number;           // ProcenatPoreza
 }
 
 export interface ArticleComboDto {

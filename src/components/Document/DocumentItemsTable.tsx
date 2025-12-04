@@ -264,8 +264,8 @@ export const DocumentItemsTable: React.FC<DocumentItemsTableProps> = ({
   const articleOptions = useMemo(
     () =>
       articles?.map((article) => ({
-        value: article.id,
-        label: article.name,
+        value: article.idArtikal,
+        label: article.nazivArtikla,
       })) ?? [],
     [articles]
   );
