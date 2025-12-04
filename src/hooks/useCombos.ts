@@ -135,6 +135,8 @@ export const useTaxRates = (): UseQueryResult<TaxRateComboDto[], unknown> => {
 
 /**
  * SP 7: Artikli
+ * ⚠️ DEPRECATED: Use autocomplete search instead (11000+ records)
+ * This hook should NOT be used for initial data loading.
  */
 export const useArticles = (): UseQueryResult<ArticleComboDto[], unknown> => {
   return useQuery(
@@ -143,6 +145,7 @@ export const useArticles = (): UseQueryResult<ArticleComboDto[], unknown> => {
     {
       staleTime: 5 * 60 * 1000,
       cacheTime: 30 * 60 * 1000,
+      enabled: false, // ⚠️ DISABLED by default - use autocomplete search
     }
   );
 };
@@ -214,6 +217,8 @@ export const useCostArticles = (
 
 // ==========================================
 // COMBO HOOK - SVE ODJEDNOM (za initial load)
+// ⚠️ DOES NOT INCLUDE ARTICLES (11000+ records)
+// Use autocomplete search for articles instead
 // ==========================================
 
 export interface AllCombos {
@@ -223,7 +228,7 @@ export interface AllCombos {
   referents: ReferentComboDto[];
   documentsND: ReferenceDocumentComboDto[];
   taxRates: TaxRateComboDto[];
-  articles: ArticleComboDto[];
+  // articles - REMOVED: Use autocomplete search
   costTypes: CostTypeComboDto[];
   costDistributionMethods: CostDistributionMethodComboDto[];
 }
@@ -241,7 +246,7 @@ export const useAllCombos = (
         referents,
         documentsND,
         taxRates,
-        articles,
+        // articles - REMOVED to prevent timeout
         costTypes,
         costDistributionMethods,
       ] = await Promise.all([
@@ -249,9 +254,9 @@ export const useAllCombos = (
         api.lookup.getOrganizationalUnits(docTypeId),
         api.lookup.getTaxationMethods(),
         api.lookup.getReferents(),
-        api.lookup.getReferenceDocuments(),  // ✅ No parameter - endpoint is /lookups/documents-nd
+        api.lookup.getReferenceDocuments(),
         api.lookup.getTaxRates(),
-        api.lookup.getArticles(),
+        // api.lookup.getArticles(), - REMOVED: 11000+ records cause timeout
         api.lookup.getCostTypes(),
         api.lookup.getCostDistributionMethods(),
       ]);
@@ -263,7 +268,7 @@ export const useAllCombos = (
         referents,
         documentsND,
         taxRates,
-        articles,
+        // articles - NOT included
         costTypes,
         costDistributionMethods,
       };
