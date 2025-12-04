@@ -71,12 +71,16 @@ export interface ReferenceDocumentComboDto {
   partnerName?: string;
 }
 
+// spPoreskaStopaCombo returns ONLY 2 columns: IDPoreskaStopa, Naziv
+// ProcenatPoreza is NOT available from this stored procedure
+// Note: ProcenatPoreza IS available via spArtikalComboUlaz (articles)
 export interface TaxRateComboDto {
   idPoreskaStopa: string;           // IdPoreskaStopa - char(2): "01", "02", "03"
   naziv: string;                    // Naziv
-  procenatPoreza: number;           // ProcenatPoreza (matches backend DTO)
+  // procenatPoreza - REMOVED: Not returned by spPoreskaStopaCombo
   /** @deprecated Legacy fields for backward compatibility */
   procenat?: number;
+  procenatPoreza?: number;
   id?: string;
   name?: string;
   percentage?: number;
@@ -88,7 +92,7 @@ export interface ArticleComboDto {
   nazivArtikla: string;             // NazivArtikla
   jedinicaMere: string | null;      // JedinicaMere
   idPoreskaStopa: string | null;    // IdPoreskaStopa
-  procenatPoreza: number;           // ProcenatPoreza
+  procenatPoreza: number;           // ProcenatPoreza (Available HERE from spArtikalComboUlaz)
   akciza: number;                   // Akciza
   koeficijentKolicine: number;      // KoeficijentKolicine
   imaLot: boolean;                  // ImaLot
