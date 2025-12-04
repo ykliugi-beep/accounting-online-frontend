@@ -66,10 +66,13 @@ export const DocumentHeader: React.FC<DocumentHeaderProps> = ({ document, onChan
   const handleAddAdvanceVAT = () => {
     if (taxRates && taxRates.length > 0) {
       const firstRate = taxRates[0];
+      const taxRateId = firstRate.idPoreskaStopa ?? firstRate.id;
+      const taxRateName = firstRate.naziv ?? firstRate.name ?? '';
+      const taxRatePercentage = firstRate.procenat ?? firstRate.percentage ?? 0;
       setAdvanceVATItems([...advanceVATItems, {
-        taxRateId: firstRate.idPoreskaStopa,
-        taxRateName: firstRate.naziv,
-        taxRatePercentage: 0, // TODO: Add procenatPoreza to TaxRateComboDto
+        taxRateId,
+        taxRateName,
+        taxRatePercentage,
         amount: 0,
       }]);
     }
@@ -111,18 +114,20 @@ export const DocumentHeader: React.FC<DocumentHeaderProps> = ({ document, onChan
           <Autocomplete
             options={partners || []}
             getOptionLabel={(option) => {
-              const code = option.sifraPartner ?? 'N/A';
-              const name = option.nazivPartnera ?? '';
-              const city = option.mesto ? ` (${option.mesto})` : '';
-              return `${code} - ${name}${city}`;
+              const code = option.sifraPartner ?? option.code ?? 'N/A';
+              const name = option.nazivPartnera ?? option.name ?? '';
+              const city = option.mesto ?? option.city;
+              return `${code} - ${name}${city ? ` (${city})` : ''}`;
             }}
             loading={combosLoading}
             value={
               partners?.find(
-                (p: PartnerComboDto) => p.idPartner === document.partnerId
+                (p: PartnerComboDto) => (p.idPartner ?? p.id) === document.partnerId
               ) || null
             }
-            onChange={(_, value) => handleFieldChange('partnerId', value?.idPartner || null)}
+            onChange={(_, value) =>
+              handleFieldChange('partnerId', value ? value.idPartner ?? value.id : null)
+            }
             renderInput={(params) => (
               <TextField
                 {...params}
@@ -135,10 +140,11 @@ export const DocumentHeader: React.FC<DocumentHeaderProps> = ({ document, onChan
               <li {...props}>
                 <Box>
                   <Typography variant="body2">
-                    <strong>{option.sifraPartner}</strong> - {option.nazivPartnera}
+                    <strong>{option.sifraPartner ?? option.code}</strong> -
+                    {` ${option.nazivPartnera ?? option.name}`}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
-                    {option.mesto} • {option.opis}
+                    {(option.mesto ?? option.city) || '—'} • {option.opis ?? option.statusName}
                   </Typography>
                 </Box>
               </li>
@@ -149,15 +155,23 @@ export const DocumentHeader: React.FC<DocumentHeaderProps> = ({ document, onChan
         <Grid item xs={12} md={6}>
           <Autocomplete
             options={organizationalUnits || []}
-            getOptionLabel={(option) => `${option.sifra ?? '—'} - ${option.naziv}`}
+            getOptionLabel={(option) => {
+              const code = option.sifra ?? option.code ?? 'N/A';
+              const name = option.naziv ?? option.name ?? '';
+              return `${code} - ${name}`;
+            }}
             loading={combosLoading}
             value={
               organizationalUnits?.find(
-                (ou: OrganizationalUnitComboDto) => ou.idOrganizacionaJedinica === document.organizationalUnitId
+                (ou: OrganizationalUnitComboDto) =>
+                  (ou.idOrganizacionaJedinica ?? ou.id) === document.organizationalUnitId
               ) || null
             }
             onChange={(_, value) =>
-              handleFieldChange('organizationalUnitId', value?.idOrganizacionaJedinica || 0)
+              handleFieldChange(
+                'organizationalUnitId',
+                value ? value.idOrganizacionaJedinica ?? value.id ?? 0 : 0
+              )
             }
             renderInput={(params) => (
               <TextField
@@ -172,10 +186,10 @@ export const DocumentHeader: React.FC<DocumentHeaderProps> = ({ document, onChan
               <li {...props}>
                 <Box>
                   <Typography variant="body2">
-                    <strong>{option.sifra}</strong> - {option.naziv}
+                    <strong>{option.sifra ?? option.code}</strong> - {option.naziv ?? option.name}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
-                    {option.mesto}
+                    {option.mesto ?? option.city}
                   </Typography>
                 </Box>
               </li>
@@ -187,14 +201,17 @@ export const DocumentHeader: React.FC<DocumentHeaderProps> = ({ document, onChan
         <Grid item xs={12} md={6}>
           <Autocomplete
             options={taxationMethods || []}
-            getOptionLabel={(option) => option.opis}
+            getOptionLabel={(option) => option.opis ?? option.description}
             loading={combosLoading}
             value={
               taxationMethods?.find(
-                (tm: TaxationMethodComboDto) => tm.idNacinOporezivanja === document.taxationMethodId
+                (tm: TaxationMethodComboDto) =>
+                  (tm.idNacinOporezivanja ?? tm.id) === document.taxationMethodId
               ) || null
             }
-            onChange={(_, value) => handleFieldChange('taxationMethodId', value?.idNacinOporezivanja || null)}
+            onChange={(_, value) =>
+              handleFieldChange('taxationMethodId', value ? value.idNacinOporezivanja ?? value.id : null)
+            }
             renderInput={(params) => (
               <TextField
                 {...params}
@@ -206,10 +223,10 @@ export const DocumentHeader: React.FC<DocumentHeaderProps> = ({ document, onChan
             renderOption={(props, option) => (
               <li {...props}>
                 <Box>
-                  <Typography variant="body2">{option.opis}</Typography>
+                  <Typography variant="body2">{option.opis ?? option.description}</Typography>
                   <Typography variant="caption" color="text.secondary">
-                    Akciza: {option.obracunAkciza ? 'Da' : 'Ne'} • Porez:
-                    {option.obracunPorez ? 'Da' : 'Ne'}
+                    Akciza: {(option.obracunAkciza ?? option.calculateExcise) ? 'Da' : 'Ne'} • Porez:
+                    {(option.obracunPorez ?? option.calculateTax) ? 'Da' : 'Ne'}
                   </Typography>
                 </Box>
               </li>
@@ -220,12 +237,20 @@ export const DocumentHeader: React.FC<DocumentHeaderProps> = ({ document, onChan
         <Grid item xs={12} md={6}>
           <Autocomplete
             options={referents || []}
-            getOptionLabel={(option) => `${option.sifraRadnika ?? '—'} - ${option.imeRadnika}`}
+            getOptionLabel={(option) => {
+              const code = option.sifraRadnika ?? option.code ?? 'N/A';
+              const name = option.imeRadnika ?? option.fullName ?? '';
+              return `${code} - ${name}`;
+            }}
             loading={combosLoading}
             value={
-              referents?.find((r: ReferentComboDto) => r.idRadnik === document.referentId) || null
+              referents?.find(
+                (r: ReferentComboDto) => (r.idRadnik ?? r.id) === document.referentId
+              ) || null
             }
-            onChange={(_, value) => handleFieldChange('referentId', value?.idRadnik || null)}
+            onChange={(_, value) =>
+              handleFieldChange('referentId', value ? value.idRadnik ?? value.id : null)
+            }
             renderInput={(params) => (
               <TextField
                 {...params}
@@ -266,7 +291,9 @@ export const DocumentHeader: React.FC<DocumentHeaderProps> = ({ document, onChan
           <Autocomplete
             options={referenceDocuments || []}
             getOptionLabel={(option) =>
-              `${option.brojDokumenta} - ${option.nazivPartnera} (${formatDate(option.datum)})`
+              `${option.brojDokumenta ?? option.documentNumber} - ${
+                option.nazivPartnera ?? option.partnerName
+              } (${formatDate(option.datum)})`
             }
             loading={combosLoading}
             value={null} // TODO: Povezati sa backend poljem
@@ -408,18 +435,25 @@ export const DocumentHeader: React.FC<DocumentHeaderProps> = ({ document, onChan
                           <Autocomplete
                             size="small"
                             options={taxRates || []}
-                            getOptionLabel={(option) => `${option.idPoreskaStopa} - ${option.naziv}`}
+                            getOptionLabel={(option) => {
+                              const id = option.idPoreskaStopa ?? option.id ?? '';
+                              const name = option.naziv ?? option.name ?? '';
+                              return `${id} - ${name}`;
+                            }}
                             value={
                               taxRates?.find(
-                                (tr: TaxRateComboDto) => tr.idPoreskaStopa === item.taxRateId
+                                (tr: TaxRateComboDto) =>
+                                  (tr.idPoreskaStopa ?? tr.id) === item.taxRateId
                               ) || null
                             }
                             onChange={(_, value) => {
                               if (value) {
-                                handleAdvanceVATChange(index, 'taxRateId', value.idPoreskaStopa);
-                                handleAdvanceVATChange(index, 'taxRateName', value.naziv);
-                                // Note: TaxRateComboDto from backend doesn't include percentage
-                                // Would need to be added or fetched separately
+                                const id = value.idPoreskaStopa ?? value.id;
+                                const name = value.naziv ?? value.name ?? '';
+                                const percentage = value.procenat ?? value.percentage ?? 0;
+                                handleAdvanceVATChange(index, 'taxRateId', id);
+                                handleAdvanceVATChange(index, 'taxRateName', name);
+                                handleAdvanceVATChange(index, 'taxRatePercentage', percentage);
                               }
                             }}
                             renderInput={(params) => <TextField {...params} placeholder="Izaberite" />}
