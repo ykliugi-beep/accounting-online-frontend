@@ -204,19 +204,24 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
               <Autocomplete
                 options={partners || []}
                 getOptionLabel={(option) => {
-                  const code = option.sifraPartner ?? 'N/A';
-                  const name = option.nazivPartnera ?? '';
-                  return `${code} - ${name}`;
+                  const code = option.sifraPartner ?? option.code ?? 'N/A';
+                  const name = option.nazivPartnera ?? option.name ?? '';
+                  const city = option.mesto ?? option.city;
+                  return `${code} - ${name}${city ? ` (${city})` : ''}`;
                 }}
                 loading={combosLoading}
                 value={
-                  partners?.find((p: PartnerComboDto) => p.idPartner === formData.partnerId) || null
+                  partners?.find(
+                    (p: PartnerComboDto) => (p.idPartner ?? p.id) === formData.partnerId
+                  ) || null
                 }
-                onChange={(_, value) => handleChange('partnerId', value?.idPartner || null)}
+                onChange={(_, value) =>
+                  handleChange('partnerId', value ? value.idPartner ?? value.id : null)
+                }
                 renderInput={(params) => (
                   <TextField
                     {...params}
-                    label="Partner (Dobavljač)"
+                    label="Partner (Dobavljač)" 
                     placeholder="Izaberite partnera"
                     helperText={partners ? `${partners.length} partnera učitano` : 'Učitavam...'}
                   />
@@ -227,19 +232,27 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
             <Grid item xs={12} md={6}>
               <Autocomplete
                 options={organizationalUnits || []}
-                getOptionLabel={(option) => `${option.sifra ?? '—'} - ${option.naziv}`}
+                getOptionLabel={(option) => {
+                  const code = option.sifra ?? option.code ?? 'N/A';
+                  const name = option.naziv ?? option.name ?? '';
+                  return `${code} - ${name}`;
+                }}
                 loading={combosLoading}
                 value={
                   organizationalUnits?.find(
-                    (ou: OrganizationalUnitComboDto) => ou.idOrganizacionaJedinica === formData.organizationalUnitId
+                    (ou: OrganizationalUnitComboDto) =>
+                      (ou.idOrganizacionaJedinica ?? ou.id) === formData.organizationalUnitId
                   ) || null
                 }
                 onChange={(_, value) =>
-                  handleChange('organizationalUnitId', value?.idOrganizacionaJedinica || 0)
+                  handleChange(
+                    'organizationalUnitId',
+                    value ? value.idOrganizacionaJedinica ?? value.id ?? 0 : 0
+                  )
                 }
                 renderInput={(params) => (
                   <TextField
-                    {...params}
+                    {...params} 
                     required 
                     label="Magacin" 
                     placeholder="Izaberite magacin"
@@ -252,10 +265,20 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
             <Grid item xs={12} md={6}>
               <Autocomplete
                 options={referents || []}
-                getOptionLabel={(option) => `${option.sifraRadnika ?? '—'} - ${option.imeRadnika}`}
+                getOptionLabel={(option) => {
+                  const code = option.sifraRadnika ?? option.code ?? 'N/A';
+                  const name = option.imeRadnika ?? option.fullName ?? '';
+                  return `${code} - ${name}`;
+                }}
                 loading={combosLoading}
-                value={referents?.find((r: ReferentComboDto) => r.idRadnik === formData.referentId) || null}
-                onChange={(_, value) => handleChange('referentId', value?.idRadnik || null)}
+                value={
+                  referents?.find(
+                    (r: ReferentComboDto) => (r.idRadnik ?? r.id) === formData.referentId
+                  ) || null
+                }
+                onChange={(_, value) =>
+                  handleChange('referentId', value ? value.idRadnik ?? value.id : null)
+                }
                 renderInput={(params) => (
                   <TextField
                     {...params}
@@ -270,14 +293,17 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
             <Grid item xs={12} md={6}>
               <Autocomplete
                 options={taxationMethods || []}
-                getOptionLabel={(option) => option.opis}
+                getOptionLabel={(option) => option.opis ?? option.description}
                 loading={combosLoading}
                 value={
                   taxationMethods?.find(
-                    (tm: TaxationMethodComboDto) => tm.idNacinOporezivanja === formData.taxationMethodId
+                    (tm: TaxationMethodComboDto) =>
+                      (tm.idNacinOporezivanja ?? tm.id) === formData.taxationMethodId
                   ) || null
                 }
-                onChange={(_, value) => handleChange('taxationMethodId', value?.idNacinOporezivanja || null)}
+                onChange={(_, value) =>
+                  handleChange('taxationMethodId', value ? value.idNacinOporezivanja ?? value.id : null)
+                }
                 renderInput={(params) => (
                   <TextField
                     {...params}
