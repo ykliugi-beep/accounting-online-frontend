@@ -267,7 +267,7 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
                 options={referents || []}
                 getOptionLabel={(option) => {
                   const code = option.sifraRadnika ?? option.code ?? 'N/A';
-                  const name = option.imeRadnika ?? option.fullName ?? '';
+                  const name = option.imePrezime ?? option.fullName ?? '';
                   return `${code} - ${name}`;
                 }}
                 loading={combosLoading}
