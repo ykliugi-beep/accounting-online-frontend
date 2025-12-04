@@ -69,7 +69,7 @@ export const DocumentHeader: React.FC<DocumentHeaderProps> = ({ document, onChan
       setAdvanceVATItems([...advanceVATItems, {
         taxRateId: firstRate.idPoreskaStopa,
         taxRateName: firstRate.naziv,
-        taxRatePercentage: firstRate.procenatPoreza,
+        taxRatePercentage: 0, // TODO: Add procenatPoreza to TaxRateComboDto
         amount: 0,
       }]);
     }
@@ -418,11 +418,8 @@ export const DocumentHeader: React.FC<DocumentHeaderProps> = ({ document, onChan
                               if (value) {
                                 handleAdvanceVATChange(index, 'taxRateId', value.idPoreskaStopa);
                                 handleAdvanceVATChange(index, 'taxRateName', value.naziv);
-                                handleAdvanceVATChange(
-                                  index,
-                                  'taxRatePercentage',
-                                  value.procenatPoreza
-                                );
+                                // Note: TaxRateComboDto from backend doesn't include percentage
+                                // Would need to be added or fetched separately
                               }
                             }}
                             renderInput={(params) => <TextField {...params} placeholder="Izaberite" />}
