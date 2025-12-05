@@ -83,16 +83,25 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
 
   const createMutation = useMutation({
     mutationFn: (data: CreateDocumentDto) => {
+      console.log('📦📦📦 ============ PAYLOAD INSPECTION ============ 📦📦📦');
       console.log('🚀 Sending to API:', data);
-      console.log('📋 Payload fields:');
-      console.log('  - documentTypeCode:', data.documentTypeCode, typeof data.documentTypeCode);
-      console.log('  - documentNumber:', data.documentNumber, typeof data.documentNumber);
-      console.log('  - date:', data.date, typeof data.date);
-      console.log('  - partnerId:', data.partnerId, typeof data.partnerId);
-      console.log('  - organizationalUnitId:', data.organizationalUnitId, typeof data.organizationalUnitId);
-      console.log('  - referentId:', data.referentId, typeof data.referentId);
-      console.log('  - taxationMethodId:', data.taxationMethodId, typeof data.taxationMethodId);
-      console.log('  - statusId:', data.statusId, typeof data.statusId);
+      console.log('📋 Full payload JSON:', JSON.stringify(data, null, 2));
+      console.log('');
+      console.log('📅 DATE FIELDS INSPECTION:');
+      console.log('  • date:', data.date, '(type:', typeof data.date, ')');
+      console.log('  • dueDate:', data.dueDate, '(type:', typeof data.dueDate, ')');
+      console.log('  • currencyDate:', data.currencyDate, '(type:', typeof data.currencyDate, ')');
+      console.log('  • partnerDocumentDate:', data.partnerDocumentDate, '(type:', typeof data.partnerDocumentDate, ')');
+      console.log('');
+      console.log('🏷️ OTHER FIELDS:');
+      console.log('  • documentTypeCode:', data.documentTypeCode, typeof data.documentTypeCode);
+      console.log('  • documentNumber:', data.documentNumber, typeof data.documentNumber);
+      console.log('  • partnerId:', data.partnerId, typeof data.partnerId);
+      console.log('  • organizationalUnitId:', data.organizationalUnitId, typeof data.organizationalUnitId);
+      console.log('  • referentId:', data.referentId, typeof data.referentId);
+      console.log('  • taxationMethodId:', data.taxationMethodId, typeof data.taxationMethodId);
+      console.log('  • statusId:', data.statusId, typeof data.statusId);
+      console.log('📦📦📦 ========================================== 📦📦📦');
       return api.document.create(data);
     },
     onSuccess: (newDocument) => {
@@ -100,14 +109,36 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
       navigate(`/documents/${newDocument.id}`);
     },
     onError: (err: any) => {
-      console.error('❌ Create Error:', err);
+      console.error('❌❌❌ ============ API ERROR ============ ❌❌❌');
+      console.error('Error object:', err);
       console.error('Error details:', {
         status: err?.status,
         message: err?.message,
         errors: err?.errors,
         title: err?.title,
+        type: err?.type,
       });
-      setError(err?.message || 'Greška pri kreiranju dokumenta');
+      
+      if (err?.errors) {
+        console.error('🐞 VALIDATION ERRORS:');
+        Object.entries(err.errors).forEach(([field, messages]) => {
+          console.error(`  • ${field}:`, messages);
+        });
+      }
+      console.error('❌❌❌ =================================== ❌❌❌');
+      
+      // Build user-friendly error message
+      let errorMsg = 'Greška pri kreiranju dokumenta';
+      if (err?.errors && Object.keys(err.errors).length > 0) {
+        const errorDetails = Object.entries(err.errors)
+          .map(([field, messages]: [string, any]) => `${field}: ${Array.isArray(messages) ? messages.join(', ') : messages}`)
+          .join('\n');
+        errorMsg = `Prosleđeni podaci nisu prošli validaciju:\n${errorDetails}`;
+      } else if (err?.message) {
+        errorMsg = err.message;
+      }
+      
+      setError(errorMsg);
     },
   });
 
@@ -120,7 +151,7 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    console.log('📋 Form Submit - Current formData:', formData);
+    console.log('📝📝📝 Form Submit - Current formData:', formData);
     
     // Validacija
     if (!formData.documentNumber) {
@@ -160,7 +191,7 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
       </Box>
 
       {error && (
-        <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
+        <Alert severity="error" sx={{ mb: 3, whiteSpace: 'pre-line' }} onClose={() => setError(null)}>
           {error}
         </Alert>
       )}
@@ -219,7 +250,11 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
                 label="Datum"
                 type="date"
                 value={formData.date}
-                onChange={(e) => handleChange('date', e.target.value)}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  console.log('📅 Date field changed:', value, 'Type:', typeof value);
+                  handleChange('date', value);
+                }}
                 InputLabelProps={{ shrink: true }}
               />
             </Grid>
@@ -350,7 +385,11 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
                 label="Datum Dospeća"
                 type="date"
                 value={formData.dueDate || ''}
-                onChange={(e) => handleChange('dueDate', e.target.value || null)}
+                onChange={(e) => {
+                  const value = e.target.value || null;
+                  console.log('📅 Due date changed:', value, 'Type:', typeof value);
+                  handleChange('dueDate', value);
+                }}
                 InputLabelProps={{ shrink: true }}
               />
             </Grid>
