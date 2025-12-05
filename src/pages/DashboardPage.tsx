@@ -89,7 +89,7 @@ export const DashboardPage: React.FC = () => {
 
       {statsError && (
         <Alert severity="info" sx={{ mb: 4 }}>
-          Statistika trenutno nije dostupna: {(statsError as Error)?.message}. Koristite brze akcije ispod za rad sa dokumentima.
+          Statistika trenutno nije dostupna: {(statsError as Error)?.message || 'Nepoznata greška'}. Koristite brze akcije ispod za rad sa dokumentima.
         </Alert>
       )}
 
@@ -134,7 +134,7 @@ export const DashboardPage: React.FC = () => {
 
             {docsError && (
               <Alert severity="info" sx={{ mt: 2 }}>
-                Dokumenti trenutno nisu dostupni: {(docsError as Error)?.message}
+                Dokumenti trenutno nisu dostupni: {(docsError as Error)?.message || 'Nepoznata greška'}
               </Alert>
             )}
 
@@ -204,3 +204,5 @@ export const DashboardPage: React.FC = () => {
     </Box>
   );
 };
+
+export default DashboardPage;
