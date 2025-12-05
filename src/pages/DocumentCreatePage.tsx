@@ -185,9 +185,10 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
         </Alert>
       )}
 
-      {combosError && (
+      {!!combosError && (
         <Alert severity="error" sx={{ mb: 3 }}>
-          Greška pri učitavanju podataka: {String((combosError as Error)?.message || 'Nepoznata greška')}
+          Greška pri učitavanju podataka:{' '}
+          {String((combosError as Error)?.message || 'Nepoznata greška')}
         </Alert>
       )}
 
