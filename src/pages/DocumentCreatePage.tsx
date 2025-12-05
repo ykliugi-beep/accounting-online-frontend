@@ -16,6 +16,7 @@ import { useNavigate } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import { api } from '../api';
 import { useAllCombos } from '../hooks/useCombos';
+import { usePartnerAutocomplete, formatPartnerLabel } from '../hooks/usePartnerAutocomplete';
 import type { 
   CreateDocumentDto,
   PartnerComboDto,
@@ -70,7 +71,16 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
   const defaultDocType = docType || 'UR';
   const { data: combosData, isLoading: combosLoading, error: combosError } = useAllCombos(defaultDocType);
 
-  const partners = combosData?.partners;
+  // 🚀 Partner autocomplete with search
+  const [partnerSearchTerm, setPartnerSearchTerm] = useState('');
+  const [selectedPartner, setSelectedPartner] = useState<PartnerComboDto | null>(null);
+  const { 
+    partners, 
+    isLoading: partnersLoading, 
+    isEmpty,
+    needsMoreChars 
+  } = usePartnerAutocomplete(partnerSearchTerm);
+
   const organizationalUnits = combosData?.orgUnits;
   const taxationMethods = combosData?.taxationMethods;
   const referents = combosData?.referents;
@@ -260,29 +270,40 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
             {/* Row 3: Partner + Partner Document Number */}
             <Grid item xs={12} md={6}>
               <Autocomplete
-                options={partners || []}
-                getOptionLabel={(option) => {
-                  const code = option.sifraPartner ?? option.code ?? 'N/A';
-                  const name = option.nazivPartnera ?? option.name ?? '';
-                  const city = option.mesto ?? option.city;
-                  return `${code} - ${name}${city ? ` (${city})` : ''}`;
-                }}
-                loading={combosLoading}
-                value={
-                  partners?.find(
-                    (p: PartnerComboDto) => (p.idPartner ?? p.id) === formData.partnerId
-                  ) || null
-                }
+                options={partners}
+                getOptionLabel={formatPartnerLabel}
+                loading={partnersLoading}
+                value={selectedPartner}
                 onChange={(_, value) => {
+                  setSelectedPartner(value);
                   const id = value ? (value.idPartner ?? value.id) : null;
                   handleChange('partnerId', id);
                 }}
+                onInputChange={(_, newValue) => {
+                  setPartnerSearchTerm(newValue);
+                }}
+                inputValue={partnerSearchTerm}
+                noOptionsText={
+                  needsMoreChars
+                    ? 'Unesite bar 2 karaktera za pretragu'
+                    : isEmpty
+                    ? 'Nema rezultata'
+                    : 'Počnite kucati za pretragu...'
+                }
                 renderInput={(params) => (
                   <TextField
                     {...params}
                     label="Partner (Dobavljač)" 
-                    placeholder="Izaberite partnera"
-                    helperText={partners ? `${partners.length} partnera učitano` : 'Učitavam...'}
+                    placeholder="Unesite šifru ili naziv partnera"
+                    helperText={
+                      needsMoreChars
+                        ? '🔍 Unesite bar 2 karaktera'
+                        : partnersLoading
+                        ? 'Učitavam...'
+                        : partners.length > 0
+                        ? `🔍 ${partners.length} rezultata (maks. 50)`
+                        : 'Počnite kucati za pretragu'
+                    }
                   />
                 )}
               />
