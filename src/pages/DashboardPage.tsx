@@ -12,9 +12,6 @@ import {
 } from '@mui/material';
 import {
   Description,
-  TrendingUp,
-  Inventory,
-  AccountBalance,
   Add,
   Assessment,
 } from '@mui/icons-material';
@@ -22,18 +19,11 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/api';
 
-interface QuickStat {
-  title: string;
-  value: string | number;
-  icon: React.ReactNode;
-  color: string;
-}
-
 export const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
 
   // Fetch dashboard stats from API
-  const { data: stats, isLoading: statsLoading, error: statsError } = useQuery({
+  const { isLoading: statsLoading, error: statsError } = useQuery({
     queryKey: ['dashboard-stats'],
     queryFn: async () => {
       // TODO: Replace with actual API endpoint when available
@@ -99,7 +89,7 @@ export const DashboardPage: React.FC = () => {
 
       {statsError && (
         <Alert severity="info" sx={{ mb: 4 }}>
-          Statistika trenutno nije dostupna. Koristite brze akcije ispod za rad sa dokumentima.
+          Statistika trenutno nije dostupna: {(statsError as Error)?.message}. Koristite brze akcije ispod za rad sa dokumentima.
         </Alert>
       )}
 
@@ -144,7 +134,7 @@ export const DashboardPage: React.FC = () => {
 
             {docsError && (
               <Alert severity="info" sx={{ mt: 2 }}>
-                Dokumenti trenutno nisu dostupni.
+                Dokumenti trenutno nisu dostupni: {(docsError as Error)?.message}
               </Alert>
             )}
 
