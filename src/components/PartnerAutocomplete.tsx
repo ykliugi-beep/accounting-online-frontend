@@ -1,6 +1,5 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Autocomplete, TextField, CircularProgress } from '@mui/material';
-import { debounce } from 'lodash';
 import { PartnerComboDto } from '../types/api.types';
 import { usePartnerSearch } from '../hooks/usePartnerSearch';
 
@@ -55,19 +54,28 @@ export const PartnerAutocomplete: React.FC<PartnerAutocompleteProps> = ({
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+  const debounceTimer = useRef<NodeJS.Timeout | null>(null);
 
-  // Debounce funkcija - čeka 300ms pre nego što pozove search
-  const debouncedSetSearch = useCallback(
-    debounce((term: string) => {
-      setDebouncedSearchTerm(term);
-    }, 300),
-    []
-  );
-
-  const handleInputChange = (_: React.SyntheticEvent, newValue: string) => {
-    setSearchTerm(newValue);
-    debouncedSetSearch(newValue);
-  };
+    // Custom debounce - čeka 300ms pre nego što pozove search
+  useEffect(() => {
+      if (debounceTimer.current) {
+        clearTimeout(debounceTimer.current);
+      }
+  
+      debounceTimer.current = setTimeout(() => {
+        setDebouncedSearchTerm(searchTerm);
+      }, 300);
+  
+      return () => {
+        if (debounceTimer.current) {
+          clearTimeout(debounceTimer.current);
+        }
+      };
+    }, [searchTerm]);
+    
+    const handleInputChange = (_: React.SyntheticEvent, newValue: string) => {
+        setSearchTerm(newValue);
+      };
 
   // React Query hook - automatski kešira rezultate
   const { data: options = [], isLoading } = usePartnerSearch(debouncedSearchTerm, 50);
