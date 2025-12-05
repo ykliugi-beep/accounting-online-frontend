@@ -127,7 +127,7 @@ export const DocumentListPage: React.FC = () => {
 
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
-          Greška pri učitavanju dokumenata: {(error as Error)?.message || 'Proverite da li je backend pokrenut i da li je CORS podešen.'}
+          Greška pri učitavanju dokumenata: {String((error as Error)?.message || 'Proverite da li je backend pokrenut i da li je CORS podešen.')}
         </Alert>
       )}
 
