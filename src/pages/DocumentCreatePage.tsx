@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Box,
   Paper,
@@ -187,7 +187,7 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
 
       {combosError && (
         <Alert severity="error" sx={{ mb: 3 }}>
-          Greška pri učitavanju podataka: {(combosError as any)?.message || 'Nepoznata greška'}
+          Greška pri učitavanju podataka: {(combosError as Error)?.message || 'Nepoznata greška'}
         </Alert>
       )}
 
