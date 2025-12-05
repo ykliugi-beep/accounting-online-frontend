@@ -443,3 +443,6 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
     </Box>
   );
 };
+
+// Required for React.lazy() to work
+export default DocumentCreatePage;
