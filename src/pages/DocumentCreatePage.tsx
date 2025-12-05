@@ -36,6 +36,32 @@ interface DocumentCreatePageProps {
   docType?: string;
 }
 
+/**
+ * ⚠️ CRITICAL: Transform date string to ISO DateTime format
+ * HTML input type="date" returns "YYYY-MM-DD"
+ * Backend .NET expects "YYYY-MM-DDTHH:mm:ss" or "YYYY-MM-DDTHH:mm:ss.sssZ"
+ * 
+ * Without this transformation, backend validation fails with:
+ * "DocumentDate mora biti validan datum"
+ * 
+ * Maps to SQL Server datetime columns in tblDokument:
+ * - date → Datum (datetime NOT NULL)
+ * - dueDate → DatumDPO (datetime NULL)
+ * - currencyDate → DatumValute (datetime NULL)
+ * - partnerDocumentDate → PartnerDatumDokumenta (datetime NULL)
+ */
+function toISODateTime(dateStr: string | null): string | null {
+  if (!dateStr) return null;
+  
+  // If already in ISO format with time, return as-is
+  if (dateStr.includes('T')) {
+    return dateStr;
+  }
+  
+  // Transform "YYYY-MM-DD" to "YYYY-MM-DDTHH:mm:ss"
+  return `${dateStr}T00:00:00`;
+}
+
 export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType }) => {
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
@@ -44,27 +70,13 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
   const defaultDocType = docType || 'UR';
   const { data: combosData, isLoading: combosLoading, error: combosError } = useAllCombos(defaultDocType);
 
-  // 🔧 DEBUG: Log what API returns
-  useEffect(() => {
-    if (combosData) {
-      console.log('📦 Combos Data Received:', combosData);
-      console.log('👥 Partners:', combosData.partners);
-      console.log('🏪 Org Units:', combosData.orgUnits);
-      console.log('💼 Taxation Methods:', combosData.taxationMethods);
-      console.log('👤 Referents:', combosData.referents);
-    }
-    if (combosError) {
-      console.error('❌ Combos Error:', combosError);
-    }
-  }, [combosData, combosError]);
-
   const partners = combosData?.partners;
   const organizationalUnits = combosData?.orgUnits;
   const taxationMethods = combosData?.taxationMethods;
   const referents = combosData?.referents;
 
   const [formData, setFormData] = useState<CreateDocumentDto>({
-    documentTypeCode: defaultDocType,  // Use prop or default
+    documentTypeCode: defaultDocType,
     documentNumber: '',
     date: new Date().toISOString().split('T')[0],
     partnerId: null,
@@ -83,49 +95,30 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
 
   const createMutation = useMutation({
     mutationFn: (data: CreateDocumentDto) => {
-      console.log('📦📦📦 ============ PAYLOAD INSPECTION ============ 📦📦📦');
-      console.log('🚀 Sending to API:', data);
-      console.log('📋 Full payload JSON:', JSON.stringify(data, null, 2));
-      console.log('');
-      console.log('📅 DATE FIELDS INSPECTION:');
-      console.log('  • date:', data.date, '(type:', typeof data.date, ')');
-      console.log('  • dueDate:', data.dueDate, '(type:', typeof data.dueDate, ')');
-      console.log('  • currencyDate:', data.currencyDate, '(type:', typeof data.currencyDate, ')');
-      console.log('  • partnerDocumentDate:', data.partnerDocumentDate, '(type:', typeof data.partnerDocumentDate, ')');
-      console.log('');
-      console.log('🏷️ OTHER FIELDS:');
-      console.log('  • documentTypeCode:', data.documentTypeCode, typeof data.documentTypeCode);
-      console.log('  • documentNumber:', data.documentNumber, typeof data.documentNumber);
-      console.log('  • partnerId:', data.partnerId, typeof data.partnerId);
-      console.log('  • organizationalUnitId:', data.organizationalUnitId, typeof data.organizationalUnitId);
-      console.log('  • referentId:', data.referentId, typeof data.referentId);
-      console.log('  • taxationMethodId:', data.taxationMethodId, typeof data.taxationMethodId);
-      console.log('  • statusId:', data.statusId, typeof data.statusId);
-      console.log('📦📦📦 ========================================== 📦📦📦');
-      return api.document.create(data);
+      // ✅ TRANSFORM DATES TO ISO FORMAT BEFORE SENDING
+      const payload: CreateDocumentDto = {
+        ...data,
+        date: toISODateTime(data.date) || data.date,  // Required, so never null
+        dueDate: toISODateTime(data.dueDate),
+        currencyDate: toISODateTime(data.currencyDate),
+        partnerDocumentDate: toISODateTime(data.partnerDocumentDate),
+      };
+
+      console.log('📦 Sending payload with transformed dates:', payload);
+      console.log('📅 Transformed dates:');
+      console.log('  • date:', payload.date);
+      console.log('  • dueDate:', payload.dueDate);
+      console.log('  • currencyDate:', payload.currencyDate);
+      console.log('  • partnerDocumentDate:', payload.partnerDocumentDate);
+      
+      return api.document.create(payload);
     },
     onSuccess: (newDocument) => {
       console.log('✅ Document Created:', newDocument);
       navigate(`/documents/${newDocument.id}`);
     },
     onError: (err: any) => {
-      console.error('❌❌❌ ============ API ERROR ============ ❌❌❌');
-      console.error('Error object:', err);
-      console.error('Error details:', {
-        status: err?.status,
-        message: err?.message,
-        errors: err?.errors,
-        title: err?.title,
-        type: err?.type,
-      });
-      
-      if (err?.errors) {
-        console.error('🐞 VALIDATION ERRORS:');
-        Object.entries(err.errors).forEach(([field, messages]) => {
-          console.error(`  • ${field}:`, messages);
-        });
-      }
-      console.error('❌❌❌ =================================== ❌❌❌');
+      console.error('❌ API ERROR:', err);
       
       // Build user-friendly error message
       let errorMsg = 'Greška pri kreiranju dokumenta';
@@ -143,15 +136,12 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
   });
 
   const handleChange = (field: keyof CreateDocumentDto, value: any) => {
-    console.log(`📝 Field changed: ${field} =`, value, typeof value);
     setFormData((prev) => ({ ...prev, [field]: value }));
     setError(null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    console.log('📝📝📝 Form Submit - Current formData:', formData);
     
     // Validacija
     if (!formData.documentNumber) {
@@ -163,7 +153,6 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
       return;
     }
     
-    console.log('✅ Validation passed, submitting...');
     createMutation.mutate(formData);
   };
 
@@ -202,7 +191,6 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
         </Alert>
       )}
 
-      {/* 🔧 DEBUG: Show loading state */}
       {combosLoading && (
         <Alert severity="info" sx={{ mb: 3 }}>
           <Box display="flex" alignItems="center" gap={2}>
@@ -215,6 +203,7 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
       <Paper sx={{ p: 4 }}>
         <form onSubmit={handleSubmit}>
           <Grid container spacing={3}>
+            {/* Row 1: Document Type + Document Number */}
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
@@ -239,10 +228,11 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
                 label="Broj Dokumenta"
                 value={formData.documentNumber}
                 onChange={(e) => handleChange('documentNumber', e.target.value)}
-                placeholder="npr. UR-2025-001"
+                placeholder="npr. T001/25"
               />
             </Grid>
 
+            {/* Row 2: Date + Due Date */}
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
@@ -250,15 +240,23 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
                 label="Datum"
                 type="date"
                 value={formData.date}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  console.log('📅 Date field changed:', value, 'Type:', typeof value);
-                  handleChange('date', value);
-                }}
+                onChange={(e) => handleChange('date', e.target.value)}
                 InputLabelProps={{ shrink: true }}
               />
             </Grid>
 
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Datum Dospeća"
+                type="date"
+                value={formData.dueDate || ''}
+                onChange={(e) => handleChange('dueDate', e.target.value || null)}
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+
+            {/* Row 3: Partner + Partner Document Number */}
             <Grid item xs={12} md={6}>
               <Autocomplete
                 options={partners || []}
@@ -276,7 +274,6 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
                 }
                 onChange={(_, value) => {
                   const id = value ? (value.idPartner ?? value.id) : null;
-                  console.log('🔍 Partner selected:', value, 'ID:', id);
                   handleChange('partnerId', id);
                 }}
                 renderInput={(params) => (
@@ -290,6 +287,40 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
               />
             </Grid>
 
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Broj Dokumenta Partnera"
+                value={formData.partnerDocumentNumber || ''}
+                onChange={(e) => handleChange('partnerDocumentNumber', e.target.value || null)}
+                placeholder="Broj fakture dobavljača"
+              />
+            </Grid>
+
+            {/* Row 4: Partner Document Date + Currency Date */}
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Datum Dokumenta Partnera"
+                type="date"
+                value={formData.partnerDocumentDate || ''}
+                onChange={(e) => handleChange('partnerDocumentDate', e.target.value || null)}
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Datum Valute"
+                type="date"
+                value={formData.currencyDate || ''}
+                onChange={(e) => handleChange('currencyDate', e.target.value || null)}
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+
+            {/* Row 5: Organizational Unit + Referent */}
             <Grid item xs={12} md={6}>
               <Autocomplete
                 options={organizationalUnits || []}
@@ -307,7 +338,6 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
                 }
                 onChange={(_, value) => {
                   const id = value ? (value.idOrganizacionaJedinica ?? value.id ?? 0) : 0;
-                  console.log('🏪 Org Unit selected:', value, 'ID:', id);
                   handleChange('organizationalUnitId', id);
                 }}
                 renderInput={(params) => (
@@ -338,7 +368,6 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
                 }
                 onChange={(_, value) => {
                   const id = value ? (value.idRadnik ?? value.id) : null;
-                  console.log('👤 Referent selected:', value, 'ID:', id);
                   handleChange('referentId', id);
                 }}
                 renderInput={(params) => (
@@ -352,6 +381,7 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
               />
             </Grid>
 
+            {/* Row 6: Taxation Method */}
             <Grid item xs={12} md={6}>
               <Autocomplete
                 options={taxationMethods || []}
@@ -365,7 +395,6 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
                 }
                 onChange={(_, value) => {
                   const id = value ? (value.idNacinOporezivanja ?? value.id) : null;
-                  console.log('💼 Taxation method selected:', value, 'ID:', id);
                   handleChange('taxationMethodId', id);
                 }}
                 renderInput={(params) => (
@@ -379,21 +408,7 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
               />
             </Grid>
 
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Datum Dospeća"
-                type="date"
-                value={formData.dueDate || ''}
-                onChange={(e) => {
-                  const value = e.target.value || null;
-                  console.log('📅 Due date changed:', value, 'Type:', typeof value);
-                  handleChange('dueDate', value);
-                }}
-                InputLabelProps={{ shrink: true }}
-              />
-            </Grid>
-
+            {/* Row 7: Notes (full width) */}
             <Grid item xs={12}>
               <TextField
                 fullWidth
