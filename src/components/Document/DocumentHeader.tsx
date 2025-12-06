@@ -22,6 +22,7 @@ import {
 } from '@mui/material';
 import { ExpandMore, Add, Delete } from '@mui/icons-material';
 import { useAllCombos } from '../../hooks/useCombos';
+import { usePartnerAutocomplete, formatPartnerLabel } from '../../hooks/usePartnerAutocomplete';
 import type { 
   DocumentDto, 
   UpdateDocumentDto, 
@@ -48,7 +49,16 @@ interface AdvanceVATItem {
 export const DocumentHeader: React.FC<DocumentHeaderProps> = ({ document, onChange }) => {
   const { data: combosData, isLoading: combosLoading } = useAllCombos(document?.documentTypeCode || 'UR');
 
-  const partners = combosData?.partners;
+  // 🚀 Partner autocomplete with search (replaces bulk load)
+  const [partnerSearchTerm, setPartnerSearchTerm] = React.useState('');
+  const [selectedPartner, setSelectedPartner] = React.useState<PartnerComboDto | null>(null);
+  const { 
+    partners, 
+    isLoading: partnersLoading, 
+    isEmpty,
+    needsMoreChars 
+  } = usePartnerAutocomplete(partnerSearchTerm);
+
   const organizationalUnits = combosData?.orgUnits;
   const taxationMethods = combosData?.taxationMethods;
   const referents = combosData?.referents;
@@ -113,28 +123,41 @@ export const DocumentHeader: React.FC<DocumentHeaderProps> = ({ document, onChan
         {/* Red 1: Dobavljač i Magacin */}
         <Grid item xs={12} md={6}>
           <Autocomplete
-            options={partners || []}
-            getOptionLabel={(option) => {
-              const code = option.sifraPartner ?? option.code ?? 'N/A';
-              const name = option.nazivPartnera ?? option.name ?? '';
-              const city = option.mesto ?? option.city;
-              return `${code} - ${name}${city ? ` (${city})` : ''}`;
+            options={partners}
+            getOptionLabel={formatPartnerLabel}
+            loading={partnersLoading}
+            value={selectedPartner}
+            onChange={(_, value) => {
+              setSelectedPartner(value);
+              handleFieldChange('partnerId', value ? value.idPartner ?? value.id : null);
             }}
-            loading={combosLoading}
-            value={
-              partners?.find(
-                (p: PartnerComboDto) => (p.idPartner ?? p.id) === document.partnerId
-              ) || null
-            }
-            onChange={(_, value) =>
-              handleFieldChange('partnerId', value ? value.idPartner ?? value.id : null)
+            onInputChange={(_, newValue) => {
+              setPartnerSearchTerm(newValue);
+            }}
+            inputValue={partnerSearchTerm}
+            noOptionsText={
+              needsMoreChars
+                ? 'Unesite bar 2 karaktera za pretragu'
+                : isEmpty
+                ? 'Nema rezultata'
+                : 'Počnite kucati za pretragu...'
             }
             renderInput={(params) => (
               <TextField
                 {...params}
                 label="Dobavljač (Partner)"
-                placeholder="Pretražite po šifri ili nazivu"
-                helperText="spPartnerComboStatusNabavka"
+                placeholder="Unesite šifru ili naziv partnera"
+                helperText={
+                  needsMoreChars
+                    ? '🔍 Unesite bar 2 karaktera'
+                    : partnersLoading
+                    ? 'Učitavam...'
+                    : partners.length > 0
+                    ? `🔍 ${partners.length} rezultata (maks. 50)`
+                    : document.partnerName
+                    ? `Trenutni: ${document.partnerName}`
+                    : 'Počnite kucati za pretragu'
+                }
               />
             )}
             renderOption={(props, option) => (
@@ -287,7 +310,7 @@ export const DocumentHeader: React.FC<DocumentHeaderProps> = ({ document, onChan
           />
         </Grid>
 
-        {/* Red 4: Narudžbenica i Valuta */}
+        {/* Red 4: Naruđbenica i Valuta */}
         <Grid item xs={12} md={6}>
           <Autocomplete
             options={referenceDocuments || []}
@@ -304,8 +327,8 @@ export const DocumentHeader: React.FC<DocumentHeaderProps> = ({ document, onChan
             renderInput={(params) => (
               <TextField
                 {...params}
-                label="Narudžbenica"
-                placeholder="Izaberite narudžbenicu"
+                label="Naruđbenica"
+                placeholder="Izaberite naruđbenicu"
                 helperText="spDokumentNDCombo"
               />
             )}
@@ -483,8 +506,9 @@ export const DocumentHeader: React.FC<DocumentHeaderProps> = ({ document, onChan
                           </IconButton>
                         </TableCell>
                       </TableRow>
-                    ))
-                  )}
+                    ))}
+                  )
+                }
                 </TableBody>
               </Table>
             </TableContainer>
