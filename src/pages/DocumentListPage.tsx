@@ -25,10 +25,10 @@ export const DocumentListPage: React.FC = () => {
     status: '',
   });
 
-  // ✅ Combo data - magacini
+  // ✅ ISPRAVKA #1: Koristi api.lookup.getOrganizationalUnits()
   const { data: organizationalUnits = [] } = useQuery({
     queryKey: ['org-units-combo'],
-    queryFn: () => api.document.getOrganizationalUnitsCombo(),
+    queryFn: () => api.lookup.getOrganizationalUnits(),
   });
 
   // ✅ KLJUČNO: `enabled: hasSearched` - fetch SAMO ako je korisnik kliknuo
@@ -128,8 +128,8 @@ export const DocumentListPage: React.FC = () => {
             >
               <option value="">-- Svi magacini --</option>
               {organizationalUnits?.map((ou: any) => (
-                <option key={ou.id} value={ou.id}>
-                  {ou.naziv}
+                <option key={ou.id ?? ou.idOrganizacionaJedinica} value={ou.id ?? ou.idOrganizacionaJedinica}>
+                  {ou.naziv ?? ou.name}
                 </option>
               ))}
             </select>
