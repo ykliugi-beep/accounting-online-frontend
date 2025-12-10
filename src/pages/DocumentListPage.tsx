@@ -60,6 +60,18 @@ export const DocumentListPage: React.FC = () => {
     setHasSearched(false);
   };
 
+  // ✅ NOVO: Dugme "Novi Dokument" - ide na Ulazna Kalkulacija VP (UR)
+  const handleNewDocument = () => {
+    // ✅ ISPRAVKA: Ide na /documents/vp/ur (Ulazna Kalkulacija VP)
+    navigate('/documents/vp/ur');
+  };
+
+  // ✅ NOVO: Prikazi dokument sa view ili edit
+  const handleViewDocument = (docId: number) => {
+    // ✅ ISPRAVKA: Ide na /documents/:id za detalje
+    navigate(`/documents/${docId}`);
+  };
+
   const documents = searchResults?.items || [];
   const totalCount = searchResults?.totalCount || 0;
 
@@ -153,7 +165,7 @@ export const DocumentListPage: React.FC = () => {
           </button>
           <button
             className={styles.btnSuccess}
-            onClick={() => navigate('/documents/new')}
+            onClick={handleNewDocument}
           >
             ➕ Novi Dokument
           </button>
@@ -199,7 +211,7 @@ export const DocumentListPage: React.FC = () => {
                       <td align="center">
                         <button
                           className={styles.actionBtn}
-                          onClick={() => navigate(`/documents/${doc.id}`)}
+                          onClick={() => handleViewDocument(doc.id)}
                           title="Prikazi detalje"
                         >
                           👁️ Prikazi
