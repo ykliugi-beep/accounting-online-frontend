@@ -1,0 +1,11 @@
+// ⚠️ BACKUP FAJL - Originalni DashboardPage
+// Ovaj fajl je prebačen u tmp folder jer se više ne koristi
+// Aplikacija sada počinje sa search page-om (/documents)
+// a ne sa dashboard-om (/)
+
+// Ukoliko trebate DashboardPage u budućnosti, restorujte iz git historije
+// ili kopirajte iz git-a
+
+// Original content was in: src/pages/DashboardPage.tsx
+// Moved on: 10. December 2025
+// Reason: Refactoring - search page je nova početna stranica
