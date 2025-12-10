@@ -57,6 +57,7 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
   const [showPartnerDropdown, setShowPartnerDropdown] = useState(false);
   const [selectedPartner, setSelectedPartner] = useState<PartnerComboDto | null>(null);
   const [partnerSearchLoading, setPartnerSearchLoading] = useState(false);
+  const [partnersLoaded, setPartnersLoaded] = useState(false);
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
 
   // ARTIKLI
@@ -117,6 +118,28 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
     loadAllData();
   }, []);
 
+  // LOAD ALL PARTNERS ON FOCUS (FIRST TIME)
+  const handlePartnerFocus = useCallback(async () => {
+    setShowPartnerDropdown(true);
+    
+    // Ako su već učitani, ne klikaj ponovo
+    if (partnersLoaded) return;
+    
+    try {
+      console.log('🔍 Loading all partners...');
+      setPartnerSearchLoading(true);
+      const allPartners = await api.lookup.getPartners();
+      setPartners(allPartners);
+      setPartnersLoaded(true);
+      console.log(`✅ Loaded ${allPartners.length} partners`);
+    } catch (err) {
+      console.error('❌ Error loading partners:', err);
+      setPartners([]);
+    } finally {
+      setPartnerSearchLoading(false);
+    }
+  }, [partnersLoaded]);
+
   // SERVER-SIDE PARTNER SEARCH SA DEBOUNCE
   const handlePartnerSearchChange = useCallback((searchTerm: string) => {
     setPartnerSearchTerm(searchTerm);
@@ -127,13 +150,24 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
       clearTimeout(debounceTimer.current);
     }
 
-    // Ako je manje od 2 karaktera, ne radi pretragu
-    if (searchTerm.trim().length < 2) {
-      setPartners([]);
+    // Ako je prazno, prikaži sve partnere
+    if (searchTerm.trim().length === 0) {
+      // Samo renderuj sta imas
       return;
     }
 
-    // Postavi novi timer za debounce (500ms)
+    // Za 1 karakter, filter klijentski
+    if (searchTerm.trim().length === 1) {
+      // Filter lokalno
+      const filtered = partners.filter((p) => {
+        const naziv = (p.naziv || p.name || '').toLowerCase();
+        return naziv.includes(searchTerm.toLowerCase());
+      });
+      setPartners(filtered);
+      return;
+    }
+
+    // Za 2+ karaktera, koristi server-side search sa debounce
     setPartnerSearchLoading(true);
     debounceTimer.current = setTimeout(async () => {
       try {
@@ -148,7 +182,7 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
         setPartnerSearchLoading(false);
       }
     }, 500);
-  }, []);
+  }, [partners]);
 
   const handlePartnerSelect = (partner: PartnerComboDto) => {
     setSelectedPartner(partner);
@@ -290,7 +324,7 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
             <div className={styles.formRow}>
               {/* DOBAVLJAČ - SERVER-SIDE SEARCH SA DEBOUNCE */}
               <div className={styles.formGroup}>
-                <label>Dobavljač (min. 2 karaktera):</label>
+                <label>Dobavljač (klikni za listu ili piši za pretragu):</label>
                 <div className={styles.autocompleteContainer}>
                   <div className={styles.inputWrapper} style={{ position: 'relative' }}>
                     <input
@@ -298,15 +332,15 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
                       className={styles.autocompleteInput}
                       value={partnerSearchTerm}
                       onChange={(e) => handlePartnerSearchChange(e.target.value)}
-                      onFocus={() => setShowPartnerDropdown(true)}
+                      onFocus={() => handlePartnerFocus()}
                       onBlur={() => setTimeout(() => setShowPartnerDropdown(false), 200)}
-                      placeholder="Unesite najmanje 2 karaktera..."
+                      placeholder="Klikni za prikaz svih ili piši za pretragu..."
                     />
                     {partnerSearchLoading && (
                       <span style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', color: '#666' }}>⏳</span>
                     )}
                   </div>
-                  {showPartnerDropdown && partnerSearchTerm.trim().length >= 2 && partners.length > 0 && (
+                  {showPartnerDropdown && partners.length > 0 && (
                     <div className={`${styles.autocompleteDropdown} ${styles.show}`}>
                       {partners.slice(0, 50).map((partner) => (
                         <div
@@ -324,24 +358,17 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
                       )}
                     </div>
                   )}
-                  {showPartnerDropdown && partnerSearchTerm.trim().length >= 2 && !partnerSearchLoading && partners.length === 0 && (
+                  {showPartnerDropdown && partnerSearchTerm.trim().length > 0 && !partnerSearchLoading && partners.length === 0 && (
                     <div className={`${styles.autocompleteDropdown} ${styles.show}`}>
                       <div className={styles.autocompleteItem} style={{ color: '#999' }}>
                         Nema rezultata za "{partnerSearchTerm}"
                       </div>
                     </div>
                   )}
-                  {showPartnerDropdown && partnerSearchTerm.trim().length >= 2 && partnerSearchLoading && (
+                  {showPartnerDropdown && partnerSearchLoading && (
                     <div className={`${styles.autocompleteDropdown} ${styles.show}`}>
                       <div className={styles.autocompleteItem} style={{ color: '#999' }}>
                         Pretražujem...
-                      </div>
-                    </div>
-                  )}
-                  {showPartnerDropdown && partnerSearchTerm.trim().length < 2 && (
-                    <div className={`${styles.autocompleteDropdown} ${styles.show}`}>
-                      <div className={styles.autocompleteItem} style={{ color: '#999' }}>
-                        Unesite najmanje 2 karaktera
                       </div>
                     </div>
                   )}
