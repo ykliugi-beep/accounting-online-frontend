@@ -41,25 +41,29 @@ export const DocumentDetailPage: React.FC = () => {
     enabled: !!documentId,
   });
 
-  const { data: documentItems = [] } = useQuery({
+  const { data: documentItems } = useQuery({
     queryKey: ['document', documentId, 'items'],
     queryFn: async () => api.lineItem.list(documentId),
     enabled: !!documentId,
   });
 
-  const { data: documentCosts = [] } = useQuery({
+  const { data: documentCosts } = useQuery({
     queryKey: ['document', documentId, 'costs'],
     queryFn: async () => api.cost.list(documentId),
     enabled: !!documentId,
   });
 
   useEffect(() => {
+    if (!documentItems) {
+      return;
+    }
+
     setItems(documentItems);
   }, [documentItems, setItems]);
 
   const mappedStavke = useMemo<Stavka[]>(
     () =>
-      documentItems.map((item) => ({
+      (documentItems ?? []).map((item) => ({
         id: item.id,
         idArtikal: item.articleId,
         nazivArtikal: item.articleName,
@@ -73,7 +77,7 @@ export const DocumentDetailPage: React.FC = () => {
 
   const mappedTroskovi = useMemo<Trosak[]>(
     () =>
-      documentCosts.flatMap((cost) =>
+      (documentCosts ?? []).flatMap((cost) =>
         cost.items?.map((item) => ({
           id: item.id,
           idVrstaTroska: item.costTypeId,
