@@ -141,14 +141,16 @@ export const useTaxRates = (): UseQueryResult<TaxRateComboDto[], unknown> => {
  * ⚠️ DEPRECATED: Use autocomplete search instead (11000+ records)
  * This hook should NOT be used for initial data loading.
  */
-export const useArticles = (): UseQueryResult<ArticleComboDto[], unknown> => {
+export const useArticles = (
+  enabled: boolean = false
+): UseQueryResult<ArticleComboDto[], unknown> => {
   return useQuery(
     queryKeys.articles,
     async () => api.lookup.getArticles(),
     {
       staleTime: 5 * 60 * 1000,
       cacheTime: 30 * 60 * 1000,
-      enabled: false, // ⚠️ DISABLED by default - use autocomplete search
+      enabled, // ⚠️ DISABLED by default - use autocomplete search
     }
   );
 };
