@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Box,
   Paper,
@@ -102,6 +102,17 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
     jm: article.jedinicaMere ?? article.unitOfMeasure,
   }));
   const costTypes = combosData?.costTypes || [];
+
+  // Artikli nisu deo useAllCombos jer je payload prevelik za inicijalni load
+  const {
+    data: artikli = [],
+    refetch: refetchArtikli,
+  } = useArticles();
+
+  useEffect(() => {
+    // Ručno refetch da bismo učitali artikle samo kada je stranica potrebna
+    refetchArtikli();
+  }, [refetchArtikli]);
 
   // ✅ Stavke state
   const [stavke, setStavke] = useState<Stavka[]>([]);
