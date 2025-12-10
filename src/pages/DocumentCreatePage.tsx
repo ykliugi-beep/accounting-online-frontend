@@ -51,14 +51,12 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
   const defaultDocType = docType || 'UR';
   const { data: combosData, isLoading: combosLoading } = useAllCombos(defaultDocType);
 
-  // PARTNERS (DOBAVLJACI) - SERVER-SIDE SEARCH
+  // PARTNERS (DOBAVLJACI) - PURE TYPING-BASED SEARCH
   const [partners, setPartners] = useState<PartnerComboDto[]>([]);
-  const [allPartners, setAllPartners] = useState<PartnerComboDto[]>([]); // Cache all partners
   const [partnerSearchTerm, setPartnerSearchTerm] = useState('');
   const [showPartnerDropdown, setShowPartnerDropdown] = useState(false);
   const [selectedPartner, setSelectedPartner] = useState<PartnerComboDto | null>(null);
   const [partnerSearchLoading, setPartnerSearchLoading] = useState(false);
-  const [partnersLoaded, setPartnersLoaded] = useState(false);
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
 
   // ARTIKLI
@@ -119,31 +117,7 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
     loadAllData();
   }, []);
 
-  // LOAD ALL PARTNERS ON FOCUS (FIRST TIME)
-  const handlePartnerFocus = useCallback(async () => {
-    setShowPartnerDropdown(true);
-    
-    // Ako su već učitani, ne klikaj ponovo
-    if (partnersLoaded) return;
-    
-    try {
-      console.log('🔍 Loading all partners...');
-      setPartnerSearchLoading(true);
-      const allPartnersData = await api.lookup.getPartners();
-      setAllPartners(allPartnersData);  // Cache ALL partners
-      setPartners(allPartnersData);      // Show ALL partners initially
-      setPartnersLoaded(true);
-      console.log(`✅ Loaded ${allPartnersData.length} partners`);
-    } catch (err) {
-      console.error('❌ Error loading partners:', err);
-      setAllPartners([]);
-      setPartners([]);
-    } finally {
-      setPartnerSearchLoading(false);
-    }
-  }, [partnersLoaded]);
-
-  // SERVER-SIDE PARTNER SEARCH SA DEBOUNCE
+  // PURE TYPING-BASED PARTNER SEARCH (NO CLICK TRIGGER)
   const handlePartnerSearchChange = useCallback((searchTerm: string) => {
     setPartnerSearchTerm(searchTerm);
     setShowPartnerDropdown(true);
@@ -153,21 +127,19 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
       clearTimeout(debounceTimer.current);
     }
 
-    // SCENARIO 1: Prazno - prikaži sve partnere koji su u cache-u
+    // SCENARIO 1: Prazno (0 karaktera) - ne prikaži ništa
     if (searchTerm.trim().length === 0) {
-      console.log('🔍 Show all cached partners');
-      setPartners(allPartners);
+      console.log('🔍 Empty search - hiding dropdown');
+      setPartners([]);
+      setShowPartnerDropdown(false);
       return;
     }
 
-    // SCENARIO 2: 1 karakter - filter SAMO lokalno, bez API poziva
+    // SCENARIO 2: 1 karakter - samo pripremi, ne poziva API
     if (searchTerm.trim().length === 1) {
-      console.log(`🔍 Local filter for: "${searchTerm}"`);
-      const filtered = allPartners.filter((p) => {
-        const naziv = (p.naziv || p.name || '').toLowerCase();
-        return naziv.includes(searchTerm.toLowerCase());
-      });
-      setPartners(filtered);
+      console.log(`🔍 Preparing search for: "${searchTerm}" (waiting for 2+ chars)`);
+      setPartners([]);
+      setShowPartnerDropdown(false);
       return;
     }
 
@@ -179,15 +151,17 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
         console.log(`🔍 Server search for: "${searchTerm}"...`);
         const searchResults = await api.lookup.searchPartners(searchTerm, 50);
         setPartners(searchResults);
+        setShowPartnerDropdown(true);
         console.log(`✅ Server found ${searchResults.length} partners matching "${searchTerm}"`);
       } catch (err) {
         console.error('❌ Error searching partners:', err);
         setPartners([]);
+        setShowPartnerDropdown(false);
       } finally {
         setPartnerSearchLoading(false);
       }
     }, 500);
-  }, [allPartners]);
+  }, []);
 
   const handlePartnerSelect = (partner: PartnerComboDto) => {
     setSelectedPartner(partner);
@@ -327,9 +301,9 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
           <div className={styles.formSection}>
             <div className={styles.formSectionTitle}>🏢 DOBAVLJAČ I MAGACIN</div>
             <div className={styles.formRow}>
-              {/* DOBAVLJAČ - SERVER-SIDE SEARCH SA DEBOUNCE */}
+              {/* DOBAVLJAČ - PURE TYPING SEARCH (NO CLICK) */}
               <div className={styles.formGroup}>
-                <label>Dobavljač (klikni za sve / piši od 2 karaktera za pretragu):</label>
+                <label>Dobavljač (piši 2+ karaktera za pretragu):</label>
                 <div className={styles.autocompleteContainer}>
                   <div className={styles.inputWrapper} style={{ position: 'relative' }}>
                     <input
@@ -337,9 +311,9 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
                       className={styles.autocompleteInput}
                       value={partnerSearchTerm}
                       onChange={(e) => handlePartnerSearchChange(e.target.value)}
-                      onFocus={() => handlePartnerFocus()}
                       onBlur={() => setTimeout(() => setShowPartnerDropdown(false), 200)}
-                      placeholder="Klikni za sve ili piši (min. 2 karaktera za pretragu)..."
+                      placeholder="Piši dobavljača (min. 2 karaktera)..."
+                      autoComplete="off"
                     />
                     {partnerSearchLoading && (
                       <span style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', color: '#666' }}>⏳</span>
@@ -363,7 +337,7 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
                       )}
                     </div>
                   )}
-                  {showPartnerDropdown && partnerSearchTerm.trim().length > 0 && !partnerSearchLoading && partners.length === 0 && (
+                  {showPartnerDropdown && partnerSearchTerm.trim().length >= 2 && !partnerSearchLoading && partners.length === 0 && (
                     <div className={`${styles.autocompleteDropdown} ${styles.show}`}>
                       <div className={styles.autocompleteItem} style={{ color: '#999' }}>
                         Nema rezultata za "{partnerSearchTerm}"
@@ -374,6 +348,13 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
                     <div className={`${styles.autocompleteDropdown} ${styles.show}`}>
                       <div className={styles.autocompleteItem} style={{ color: '#999' }}>
                         Pretražujem...
+                      </div>
+                    </div>
+                  )}
+                  {showPartnerDropdown && partnerSearchTerm.trim().length === 1 && (
+                    <div className={`${styles.autocompleteDropdown} ${styles.show}`}>
+                      <div className={styles.autocompleteItem} style={{ color: '#999' }}>
+                        Unesite još 1 karakter...
                       </div>
                     </div>
                   )}
