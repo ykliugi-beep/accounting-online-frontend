@@ -53,6 +53,9 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
 
   // PARTNERS (DOBAVLJACI)
   const [partners, setPartners] = useState<PartnerComboDto[]>([]);
+  const [partnerSearchTerm, setPartnerSearchTerm] = useState('');
+  const [showPartnerDropdown, setShowPartnerDropdown] = useState(false);
+  const [selectedPartner, setSelectedPartner] = useState<PartnerComboDto | null>(null);
 
   // ARTIKLI
   const [artikli, setArtikli] = useState<ArticleComboDto[]>([]);
@@ -118,6 +121,14 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
     loadAllData();
   }, []);
 
+  // FILTER PARTNERS
+  const filteredPartners = partnerSearchTerm.trim().length > 0
+    ? partners.filter((p) => {
+        const naziv = (p.naziv || p.name || '').toLowerCase();
+        return naziv.includes(partnerSearchTerm.toLowerCase());
+      })
+    : partners;
+
   const createMutation = useMutation({
     mutationFn: (data: CreateDocumentDto) => {
       const payload: CreateDocumentDto = {
@@ -164,6 +175,13 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
     }
     
     setAvansPDV(updated);
+  };
+
+  const handlePartnerSelect = (partner: PartnerComboDto) => {
+    setSelectedPartner(partner);
+    setPartnerSearchTerm(partner.naziv || partner.name || '');
+    setFormData({ ...formData, partnerId: partner.idPartner || partner.id });
+    setShowPartnerDropdown(false);
   };
 
   const docTypeLabel = DOCUMENT_TYPES.find(t => t.code === defaultDocType)?.label || 'Novi Dokument';
@@ -248,23 +266,48 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
           <div className={styles.formSection}>
             <div className={styles.formSectionTitle}>🏢 DOBAVLJAČ I MAGACIN</div>
             <div className={styles.formRow}>
-              {/* DOBAVLJAČ - SELECT DROPDOWN */}
+              {/* DOBAVLJAČ - SEARCHABLE INPUT SA DROPDOWN */}
               <div className={styles.formGroup}>
                 <label>Dobavljač:</label>
-                <select
-                  value={formData.partnerId || ''}
-                  onChange={(e) => {
-                    const partnerId = e.target.value ? parseInt(e.target.value) : null;
-                    setFormData({ ...formData, partnerId });
-                  }}
-                >
-                  <option value="">-- Izaberite dobavljača --</option>
-                  {partners.map((partner) => (
-                    <option key={partner.idPartner || partner.id} value={partner.idPartner || partner.id}>
-                      {partner.naziv || partner.name}
-                    </option>
-                  ))}
-                </select>
+                <div className={styles.autocompleteContainer}>
+                  <input
+                    type="text"
+                    className={styles.autocompleteInput}
+                    value={partnerSearchTerm}
+                    onChange={(e) => {
+                      setPartnerSearchTerm(e.target.value);
+                      setShowPartnerDropdown(true);
+                    }}
+                    onFocus={() => setShowPartnerDropdown(true)}
+                    onBlur={() => setTimeout(() => setShowPartnerDropdown(false), 200)}
+                    placeholder="Unesite naziv dobavljača..."
+                  />
+                  {showPartnerDropdown && filteredPartners.length > 0 && (
+                    <div className={`${styles.autocompleteDropdown} ${styles.show}`}>
+                      {filteredPartners.slice(0, 50).map((partner) => (
+                        <div
+                          key={partner.idPartner || partner.id}
+                          className={styles.autocompleteItem}
+                          onClick={() => handlePartnerSelect(partner)}
+                        >
+                          {partner.naziv || partner.name}
+                        </div>
+                      ))}
+                      {filteredPartners.length > 50 && (
+                        <div className={styles.autocompleteItem} style={{ fontStyle: 'italic', color: '#999' }}>
+                          ... i još {filteredPartners.length - 50}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {showPartnerDropdown && partnerSearchTerm.trim().length > 0 && filteredPartners.length === 0 && (
+                    <div className={`${styles.autocompleteDropdown} ${styles.show}`}>
+                      <div className={styles.autocompleteItem} style={{ color: '#999' }}>
+                        Nema rezultata
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* MAGACIN */}
