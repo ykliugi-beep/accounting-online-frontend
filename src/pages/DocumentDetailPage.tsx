@@ -8,6 +8,12 @@ import {
   Typography,
   Button,
   CircularProgress,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
+  Divider,
 } from '@mui/material';
 import { ArrowBack as ArrowBackIcon } from '@mui/icons-material';
 import { useQuery } from '@tanstack/react-query';
@@ -29,7 +35,7 @@ export const DocumentDetailPage: React.FC = () => {
 
   const { data: costTypesData = [] } = useCostTypes();
 
-  const { data: document, isLoading } = useQuery({
+  const { data: document, isLoading } = useQuery<DocumentDto | undefined>({
     queryKey: ['document', documentId],
     queryFn: async () => api.document.get(documentId),
     enabled: !!documentId,

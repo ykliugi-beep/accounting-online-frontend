@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Box,
   Paper,
@@ -16,7 +16,7 @@ import { Save, ArrowBack } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import { api } from '../api';
-import { useAllCombos } from '../hooks/useCombos';
+import { useAllCombos, useArticles } from '../hooks/useCombos';
 import { usePartnerAutocomplete, formatPartnerLabel } from '../hooks/usePartnerAutocomplete';
 import TabsComponent from '../components/Document/TabsComponent';
 import StavkeDokumentaTable from '../components/Document/StavkeDokumentaTable';
@@ -94,8 +94,18 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
   const organizationalUnits = combosData?.orgUnits;
   const taxationMethods = combosData?.taxationMethods;
   const referents = combosData?.referents;
-  const artikli = combosData?.artikli || [];
   const costTypes = combosData?.costTypes || [];
+
+  // Artikli nisu deo useAllCombos jer je payload prevelik za inicijalni load
+  const {
+    data: artikli = [],
+    refetch: refetchArtikli,
+  } = useArticles();
+
+  useEffect(() => {
+    // Ručno refetch da bismo učitali artikle samo kada je stranica potrebna
+    refetchArtikli();
+  }, [refetchArtikli]);
 
   // ✅ Stavke state
   const [stavke, setStavke] = useState<Stavka[]>([]);
