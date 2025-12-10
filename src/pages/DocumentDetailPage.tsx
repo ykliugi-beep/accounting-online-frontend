@@ -54,7 +54,6 @@ export const DocumentDetailPage: React.FC = () => {
   });
 
   useEffect(() => {
-    if (documentItems.length === 0) return;
     setItems(documentItems);
   }, [documentItems, setItems]);
 
