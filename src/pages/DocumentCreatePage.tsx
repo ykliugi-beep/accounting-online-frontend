@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import { api } from '../api';
 import { useAllCombos } from '../hooks/useCombos';
-import { usePartnerAutocomplete, formatPartnerLabel } from '../hooks/usePartnerAutocomplete';
 import StavkeDokumentaTable from '../components/Document/StavkeDokumentaTable';
 import TroskoviTable from '../components/Document/TroskoviTable';
 import type {
@@ -23,6 +22,14 @@ const DOCUMENT_TYPES = [
   { code: 'FO', label: 'Finansijsko Odobrenje' },
   { code: 'AR', label: 'Avansni Račun' },
 ];
+
+interface AvansPDVRow {
+  poreskaStopaId: number;
+  poreskaStopaVal: number;
+  osnov: number;
+  pdvIznos: number;
+  ukupno: number;
+}
 
 interface DocumentCreatePageProps {
   docType?: string;
@@ -44,16 +51,17 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
   const defaultDocType = docType || 'UR';
   const { data: combosData, isLoading: combosLoading } = useAllCombos(defaultDocType);
 
-  // DOBAVLJAČ AUTOCOMPLETE - čeka 2+ karaktera
-  const [partnerSearchTerm, setPartnerSearchTerm] = useState('');
-  const [showPartnerDropdown, setShowPartnerDropdown] = useState(false);
-  const [selectedPartner, setSelectedPartner] = useState<PartnerComboDto | null>(null);
-  const { partners } = usePartnerAutocomplete(partnerSearchTerm);
+  // PARTNERS (DOBAVLJACI)
+  const [partners, setPartners] = useState<PartnerComboDto[]>([]);
 
-  // ARTIKLI AUTOCOMPLETE
-  const [articleSearchTerm, setArticleSearchTerm] = useState('');
-  const [showArticleDropdown, setShowArticleDropdown] = useState(false);
+  // ARTIKLI
   const [artikli, setArtikli] = useState<ArticleComboDto[]>([]);
+
+  // PORESKE STOPE ZA AVANSU
+  const [poreskeStope, setPoreskeStope] = useState<any[]>([]);
+  const [avansPDV, setAvansPDV] = useState<AvansPDVRow[]>([
+    { poreskaStopaId: 0, poreskaStopaVal: 0, osnov: 0, pdvIznos: 0, ukupno: 0 }
+  ]);
 
   // FORM DATA
   const [formData, setFormData] = useState<CreateDocumentDto>({
@@ -78,22 +86,36 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
   const [stavke, setStavke] = useState<Stavka[]>([]);
   const [troskovi, setTroskovi] = useState<Trosak[]>([]);
 
-  // UČITAJ ARTIKLE
+  // UČITAJ SVE PODATKE
   useEffect(() => {
-    const loadArticles = async () => {
+    const loadAllData = async () => {
       try {
         setLoadingData(true);
-        const data = await api.lookup.getArticles();
-        setArtikli(data);
-        console.log(`✅ Loaded ${data.length} articles`);
+        
+        // Učitaj artikle
+        const articlesData = await api.lookup.getArticles();
+        setArtikli(articlesData);
+        console.log(`✅ Loaded ${articlesData.length} articles`);
+        
+        // Učitaj dobavljache
+        const partnersData = await api.lookup.getPartners();
+        setPartners(partnersData);
+        console.log(`✅ Loaded ${partnersData.length} partners`);
+        
+        // Učitaj poreske stope
+        const taksData = await api.lookup.getTaxRates();
+        setPoreskeStope(taksData);
+        console.log(`✅ Loaded ${taksData.length} tax rates`);
       } catch (err) {
-        console.error('❌ Failed to load articles:', err);
+        console.error('❌ Failed to load data:', err);
         setArtikli([]);
+        setPartners([]);
+        setPoreskeStope([]);
       } finally {
         setLoadingData(false);
       }
     };
-    loadArticles();
+    loadAllData();
   }, []);
 
   const createMutation = useMutation({
@@ -116,15 +138,6 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
     },
   });
 
-  // FILTERIRANI DROPDOWN STAVKE
-  const filteredPartners = partnerSearchTerm.length >= 2
-    ? partners.filter(p => formatPartnerLabel(p).toLowerCase().includes(partnerSearchTerm.toLowerCase()))
-    : [];
-
-  const filteredArticles = articleSearchTerm.length >= 2
-    ? artikli.filter(a => (a.nazivArtikla || a.name || '').toLowerCase().includes(articleSearchTerm.toLowerCase()))
-    : [];
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.documentNumber) {
@@ -136,6 +149,21 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
       return;
     }
     createMutation.mutate(formData);
+  };
+
+  // KALKULACIJA PDV-a
+  const handleAvansPDVChange = (index: number, field: keyof AvansPDVRow, value: any) => {
+    const updated = [...avansPDV];
+    updated[index] = { ...updated[index], [field]: value };
+    
+    if (field === 'poreskaStopaVal' || field === 'osnov') {
+      const stopaVal = field === 'poreskaStopaVal' ? value : updated[index].poreskaStopaVal;
+      const osnov = field === 'osnov' ? value : updated[index].osnov;
+      updated[index].pdvIznos = (osnov * stopaVal) / 100;
+      updated[index].ukupno = osnov + updated[index].pdvIznos;
+    }
+    
+    setAvansPDV(updated);
   };
 
   const docTypeLabel = DOCUMENT_TYPES.find(t => t.code === defaultDocType)?.label || 'Novi Dokument';
@@ -220,41 +248,23 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
           <div className={styles.formSection}>
             <div className={styles.formSectionTitle}>🏢 DOBAVLJAČ I MAGACIN</div>
             <div className={styles.formRow}>
-              {/* DOBAVLJAČ AUTOCOMPLETE */}
+              {/* DOBAVLJAČ - SELECT DROPDOWN */}
               <div className={styles.formGroup}>
                 <label>Dobavljač:</label>
-                <div className={styles.autocompleteContainer}>
-                  <input
-                    type="text"
-                    className={styles.autocompleteInput}
-                    value={partnerSearchTerm}
-                    onChange={(e) => {
-                      setPartnerSearchTerm(e.target.value);
-                      setShowPartnerDropdown(e.target.value.length >= 2);
-                    }}
-                    onFocus={() => setShowPartnerDropdown(partnerSearchTerm.length >= 2)}
-                    onBlur={() => setTimeout(() => setShowPartnerDropdown(false), 200)}
-                    placeholder="Unesite bar 2 karaktera..."
-                  />
-                  {showPartnerDropdown && filteredPartners.length > 0 && (
-                    <div className={`${styles.autocompleteDropdown} ${styles.show}`}>
-                      {filteredPartners.map((partner) => (
-                        <div
-                          key={partner.idPartner || partner.id}
-                          className={styles.autocompleteItem}
-                          onClick={() => {
-                            setSelectedPartner(partner);
-                            setPartnerSearchTerm(formatPartnerLabel(partner));
-                            setFormData({ ...formData, partnerId: partner.idPartner || partner.id });
-                            setShowPartnerDropdown(false);
-                          }}
-                        >
-                          {formatPartnerLabel(partner)}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                <select
+                  value={formData.partnerId || ''}
+                  onChange={(e) => {
+                    const partnerId = e.target.value ? parseInt(e.target.value) : null;
+                    setFormData({ ...formData, partnerId });
+                  }}
+                >
+                  <option value="">-- Izaberite dobavljača --</option>
+                  {partners.map((partner) => (
+                    <option key={partner.idPartner || partner.id} value={partner.idPartner || partner.id}>
+                      {partner.naziv || partner.name}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               {/* MAGACIN */}
@@ -335,6 +345,58 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
                 />
               </div>
             </div>
+          </div>
+
+          {/* PORESKE TARIFE (AVANSI) */}
+          <div className={styles.formSection}>
+            <div className={styles.formSectionTitle}>📊 PORESKE TARIFE (AVANSI)</div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Poreska Stopa</th>
+                  <th>Osnov</th>
+                  <th>PDV Iznos</th>
+                  <th>Ukupno</th>
+                </tr>
+              </thead>
+              <tbody>
+                {avansPDV.map((row, idx) => (
+                  <tr key={idx}>
+                    <td>
+                      <select
+                        value={row.poreskaStopaVal}
+                        onChange={(e) => handleAvansPDVChange(idx, 'poreskaStopaVal', parseInt(e.target.value))}
+                      >
+                        <option value="0">0%</option>
+                        <option value="10">10%</option>
+                        <option value="20">20%</option>
+                      </select>
+                    </td>
+                    <td>
+                      <input
+                        type="number"
+                        value={row.osnov}
+                        onChange={(e) => handleAvansPDVChange(idx, 'osnov', parseFloat(e.target.value) || 0)}
+                      />
+                    </td>
+                    <td>
+                      <input
+                        type="number"
+                        value={row.pdvIznos.toFixed(2)}
+                        disabled
+                      />
+                    </td>
+                    <td>
+                      <input
+                        type="number"
+                        value={row.ukupno.toFixed(2)}
+                        disabled
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
