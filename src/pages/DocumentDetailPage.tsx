@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -18,7 +18,10 @@ import {
 import { ArrowBack as ArrowBackIcon } from '@mui/icons-material';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api';
-import type { DocumentDto, DocumentLineItemDto, DocumentCostDto } from '../types/api.types';
+import { useDocumentStore } from '../store';
+import StavkeDokumentaTable, { Stavka } from '../components/Document/StavkeDokumentaTable';
+import TroskoviTable, { Trosak } from '../components/Document/TroskoviTable';
+import { useCostTypes } from '../hooks/useCombos';
 
 export const DocumentDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -26,6 +29,11 @@ export const DocumentDetailPage: React.FC = () => {
   const documentId = Number(id);
 
   const [activeTab, setActiveTab] = useState(0);
+  const { setItems } = useDocumentStore();
+  const [stavke, setStavke] = useState<Stavka[]>([]);
+  const [troskovi, setTroskovi] = useState<Trosak[]>([]);
+
+  const { data: costTypesData = [] } = useCostTypes();
 
   const { data: document, isLoading } = useQuery<DocumentDto | undefined>({
     queryKey: ['document', documentId],
@@ -33,17 +41,59 @@ export const DocumentDetailPage: React.FC = () => {
     enabled: !!documentId,
   });
 
-  const { data: lineItems, isLoading: itemsLoading } = useQuery<DocumentLineItemDto[]>({
-    queryKey: ['document-line-items', documentId],
+  const { data: documentItems = [] } = useQuery({
+    queryKey: ['document', documentId, 'items'],
     queryFn: async () => api.lineItem.list(documentId),
     enabled: !!documentId,
   });
 
-  const { data: costs, isLoading: costsLoading } = useQuery<DocumentCostDto[]>({
-    queryKey: ['document-costs', documentId],
+  const { data: documentCosts = [] } = useQuery({
+    queryKey: ['document', documentId, 'costs'],
     queryFn: async () => api.cost.list(documentId),
     enabled: !!documentId,
   });
+
+  useEffect(() => {
+    if (documentItems.length === 0) return;
+    setItems(documentItems);
+  }, [documentItems, setItems]);
+
+  const mappedStavke = useMemo<Stavka[]>(
+    () =>
+      documentItems.map((item) => ({
+        id: item.id,
+        idArtikal: item.articleId,
+        nazivArtikal: item.articleName,
+        jedinicaMere: item.unitOfMeasure,
+        kolicina: item.quantity,
+        jedinicnaCena: item.invoicePrice,
+        iznos: item.totalAmount,
+      })),
+    [documentItems]
+  );
+
+  const mappedTroskovi = useMemo<Trosak[]>(
+    () =>
+      documentCosts.flatMap((cost) =>
+        cost.items?.map((item) => ({
+          id: item.id,
+          idVrstaTroska: item.costTypeId,
+          nazivVrstaTroska: item.costTypeName,
+          opis: cost.description || '',
+          iznos: item.amount,
+          nacin: item.distributionMethodId || 3,
+        })) || []
+      ),
+    [documentCosts]
+  );
+
+  useEffect(() => {
+    setStavke(mappedStavke);
+  }, [mappedStavke]);
+
+  useEffect(() => {
+    setTroskovi(mappedTroskovi);
+  }, [mappedTroskovi]);
 
   const handleBack = () => {
     navigate('/documents');
@@ -53,138 +103,44 @@ export const DocumentDetailPage: React.FC = () => {
     setActiveTab(newValue);
   };
 
-  const renderHeaderTab = (doc: DocumentDto) => (
-    <Paper sx={{ p: 3 }}>
-      <Typography variant="h6" sx={{ mb: 2 }}>
-        Osnovne informacije
-      </Typography>
-      <Divider sx={{ mb: 2 }} />
-      <Box display="grid" gridTemplateColumns={{ xs: '1fr', md: 'repeat(2, 1fr)' }} gap={2}>
-        <Box>
-          <Typography variant="subtitle2" color="text.secondary">
-            Broj dokumenta
-          </Typography>
-          <Typography variant="body1">{doc.documentNumber}</Typography>
-        </Box>
-        <Box>
-          <Typography variant="subtitle2" color="text.secondary">
-            Tip dokumenta
-          </Typography>
-          <Typography variant="body1">{doc.documentTypeCode}</Typography>
-        </Box>
-        <Box>
-          <Typography variant="subtitle2" color="text.secondary">
-            Datum
-          </Typography>
-          <Typography variant="body1">{doc.date}</Typography>
-        </Box>
-        <Box>
-          <Typography variant="subtitle2" color="text.secondary">
-            Partner
-          </Typography>
-          <Typography variant="body1">{doc.partnerName || 'N/A'}</Typography>
-        </Box>
-        <Box>
-          <Typography variant="subtitle2" color="text.secondary">
-            Magacin
-          </Typography>
-          <Typography variant="body1">{doc.organizationalUnitName}</Typography>
-        </Box>
-        <Box>
-          <Typography variant="subtitle2" color="text.secondary">
-            Referent
-          </Typography>
-          <Typography variant="body1">{doc.referentName || 'N/A'}</Typography>
-        </Box>
-        <Box>
-          <Typography variant="subtitle2" color="text.secondary">
-            Ukupno (bez PDV)
-          </Typography>
-          <Typography variant="body1">{doc.totalAmountNet.toFixed(2)}</Typography>
-        </Box>
-        <Box>
-          <Typography variant="subtitle2" color="text.secondary">
-            Ukupno (sa PDV)
-          </Typography>
-          <Typography variant="body1">{doc.totalAmountGross.toFixed(2)}</Typography>
-        </Box>
-      </Box>
-    </Paper>
-  );
+  const handleAddStavka = () => {
+    const newStavka: Stavka = {
+      idArtikal: 0,
+      nazivArtikal: '',
+      jedinicaMere: '',
+      kolicina: 0,
+      jedinicnaCena: 0,
+      iznos: 0,
+    };
+    setStavke((prev) => [...prev, newStavka]);
+  };
 
-  const renderItemsTab = () => (
-    <Paper sx={{ p: 3 }}>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-        <Typography variant="h6">Stavke dokumenta</Typography>
-        {itemsLoading && <CircularProgress size={20} />}
-      </Box>
+  const handleDeleteStavka = (index: number) => {
+    setStavke((prev) => prev.filter((_, i) => i !== index));
+  };
 
-      {!lineItems || lineItems.length === 0 ? (
-        <Typography color="text.secondary">Nema stavki za ovaj dokument.</Typography>
-      ) : (
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell>Šifra artikla</TableCell>
-              <TableCell>Naziv</TableCell>
-              <TableCell align="right">Količina</TableCell>
-              <TableCell align="right">Jedinična cena</TableCell>
-              <TableCell align="right">Ukupno</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {lineItems.map((item) => (
-              <TableRow key={item.id} hover>
-                <TableCell>{item.articleCode}</TableCell>
-                <TableCell>{item.articleName}</TableCell>
-                <TableCell align="right">{item.quantity}</TableCell>
-                <TableCell align="right">{item.invoicePrice.toFixed(2)}</TableCell>
-                <TableCell align="right">{item.totalAmount.toFixed(2)}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      )}
-    </Paper>
-  );
+  const handleUpdateStavka = (index: number, updated: Stavka) => {
+    setStavke((prev) => prev.map((stavka, i) => (i === index ? updated : stavka)));
+  };
 
-  const renderCostsTab = () => (
-    <Paper sx={{ p: 3 }}>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-        <Typography variant="h6">Zavisni troškovi</Typography>
-        {costsLoading && <CircularProgress size={20} />}
-      </Box>
+  const handleAddTrosak = () => {
+    const newTrosak: Trosak = {
+      idVrstaTroska: 0,
+      nazivVrstaTroska: '',
+      opis: '',
+      iznos: 0,
+      nacin: 3,
+    };
+    setTroskovi((prev) => [...prev, newTrosak]);
+  };
 
-      {!costs || costs.length === 0 ? (
-        <Typography color="text.secondary">Nema unetih troškova.</Typography>
-      ) : (
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell>Partner</TableCell>
-              <TableCell>Dokument</TableCell>
-              <TableCell>Dospeće</TableCell>
-              <TableCell align="right">Iznos bez PDV</TableCell>
-              <TableCell align="right">Iznos PDV</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {costs.map((cost) => (
-              <TableRow key={cost.id} hover>
-                <TableCell>{cost.partnerName}</TableCell>
-                <TableCell>
-                  {cost.documentTypeCode} - {cost.documentNumber}
-                </TableCell>
-                <TableCell>{cost.dueDate}</TableCell>
-                <TableCell align="right">{cost.totalAmountNet.toFixed(2)}</TableCell>
-                <TableCell align="right">{cost.totalAmountVat.toFixed(2)}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      )}
-    </Paper>
-  );
+  const handleDeleteTrosak = (index: number) => {
+    setTroskovi((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleUpdateTrosak = (index: number, updated: Trosak) => {
+    setTroskovi((prev) => prev.map((trosak, i) => (i === index ? updated : trosak)));
+  };
 
   if (isLoading) {
     return (
@@ -231,9 +187,58 @@ export const DocumentDetailPage: React.FC = () => {
       </Paper>
 
       <Box>
-        {activeTab === 0 && renderHeaderTab(document)}
-        {activeTab === 1 && renderItemsTab()}
-        {activeTab === 2 && renderCostsTab()}
+        {activeTab === 0 && (
+          <Paper sx={{ p: 3 }}>
+            <Typography variant="h6" gutterBottom>
+              Zaglavlje dokumenta
+            </Typography>
+            <Box display="grid" gridTemplateColumns="repeat(auto-fit, minmax(220px, 1fr))" gap={2}>
+              <Box>
+                <Typography variant="subtitle2">Broj dokumenta</Typography>
+                <Typography>{document.documentNumber}</Typography>
+              </Box>
+              <Box>
+                <Typography variant="subtitle2">Vrsta</Typography>
+                <Typography>{document.documentTypeCode}</Typography>
+              </Box>
+              <Box>
+                <Typography variant="subtitle2">Datum</Typography>
+                <Typography>{new Date(document.date).toLocaleDateString()}</Typography>
+              </Box>
+              <Box>
+                <Typography variant="subtitle2">Partner</Typography>
+                <Typography>{document.partnerName || 'N/A'}</Typography>
+              </Box>
+              <Box>
+                <Typography variant="subtitle2">Magacin</Typography>
+                <Typography>{document.organizationalUnitName}</Typography>
+              </Box>
+              <Box>
+                <Typography variant="subtitle2">Status</Typography>
+                <Typography>{document.statusId ?? 'N/A'}</Typography>
+              </Box>
+            </Box>
+          </Paper>
+        )}
+        {activeTab === 1 && (
+          <StavkeDokumentaTable
+            stavke={stavke}
+            onAddRow={handleAddStavka}
+            onDeleteRow={handleDeleteStavka}
+            onUpdateRow={handleUpdateStavka}
+            artikli={[]}
+          />
+        )}
+        {activeTab === 2 && (
+          <TroskoviTable
+            troskovi={troskovi}
+            stavke={stavke}
+            onAddRow={handleAddTrosak}
+            onDeleteRow={handleDeleteTrosak}
+            onUpdateRow={handleUpdateTrosak}
+            costTypes={costTypesData}
+          />
+        )}
       </Box>
     </Box>
   );
