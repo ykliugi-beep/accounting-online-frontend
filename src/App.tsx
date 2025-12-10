@@ -7,7 +7,6 @@ import { Layout } from './components/Layout/Layout';
 import { useUIStore } from './store';
 
 // Lazy load all page components for better performance
-const DashboardPage = lazy(() => import('./pages/DashboardPage'));
 const DocumentListPage = lazy(() => import('./pages/DocumentListPage'));
 const DocumentCreatePage = lazy(() => import('./pages/DocumentCreatePage'));
 const DocumentDetailPage = lazy(() => import('./pages/DocumentDetailPage'));
@@ -38,7 +37,7 @@ const PageLoader: React.FC = () => (
     <Box textAlign="center">
       <CircularProgress size={48} thickness={4} />
       <Box mt={2} color="text.secondary" fontSize="0.875rem">
-        Učitavanje...
+        Уčitavanje...
       </Box>
     </Box>
   </Box>
@@ -67,12 +66,17 @@ const App: React.FC = () => {
           <Suspense fallback={<PageLoader />}>
             <Routes>
               <Route element={<Layout />}>
-                {/* Dashboard */}
-                <Route path="/" element={<DashboardPage />} />
+                {/* HOME PAGE - Pretraga Dokumenata */}
+                {/* ✅ Nova home page je pretraga umesto dashboard-a */}
+                <Route path="/" element={<Navigate to="/documents" replace />} />
                 
-                {/* Generic Documents */}
+                {/* Search / List Documents - OVO JE NOVA HOME STRANICA */}
                 <Route path="/documents" element={<DocumentListPage />} />
+                
+                {/* Create new document - Generic */}
                 <Route path="/documents/new" element={<DocumentCreatePage />} />
+                
+                {/* View/Edit document details */}
                 <Route path="/documents/:id" element={<DocumentDetailPage />} />
                 
                 {/* Document Types - VP (Veleprodaja) */}
@@ -111,8 +115,8 @@ const App: React.FC = () => {
                 <Route path="/documents/mp/trm" element={<DocumentCreatePage docType="TRM" />} />
                 <Route path="/documents/mp/dmk" element={<DocumentCreatePage docType="DMK" />} />
                 
-                {/* 404 - Redirect to Dashboard */}
-                <Route path="*" element={<Navigate to="/" replace />} />
+                {/* 404 - Redirect to Documents (Search) */}
+                <Route path="*" element={<Navigate to="/documents" replace />} />
               </Route>
             </Routes>
           </Suspense>
