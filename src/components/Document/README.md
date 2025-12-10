@@ -1,80 +1,82 @@
-# React Components
+# 📦 Document Components Folder
 
-**UI Components**
-
-## Struktura
+## Struktura Foldera
 
 ```
-common/
-├── Layout.tsx
-├── Header.tsx
-├── Navigation.tsx
-├── LoadingSpinner.tsx
-└── ErrorBoundary.tsx
-
-document/
-├── DocumentForm.tsx          # Main form sa 3 tab-a
-├── DocumentHeader.tsx        # Tab 1: Osnovni podaci
-├── DocumentItems.tsx         # Tab 2: Stavke
-├── DocumentCosts.tsx         # Tab 3: Troškovi
-├── ItemsTable.tsx            # KRITIČNO: Excel-like tabla
-├── CostsTable.tsx
-└── DocumentPreview.tsx
-
-controls/
-├── EditableCell.tsx          # Custom ćelija
-├── ComboSelect.tsx           # Dropdown sa lookup
-├── NumericInput.tsx
-└── StatusBadge.tsx
-
-dialogs/
-├── ConflictDialog.tsx        # 409 handling
-├── ConfirmDialog.tsx
-└── ErrorDialog.tsx
+src/components/Document/
+├── TabsComponent.tsx                 ✅ Tab navigacija (NOVO - prebačeno)
+├── TabsComponent.module.css          ✅ CSS za tabse (NOVO - prebačeno)
+├── StavkeDokumentaTable.tsx          ✅ Stavke tabela (NOVO - prebačeno)
+├── StavkeDokumentaTable.module.css   ✅ CSS za stavke (NOVO - prebačeno)
+├── TroskoviTable.tsx                 ✅ Troškovi tabela (NOVO - prebačeno)
+├── TroskoviTable.module.css          ✅ CSS za troškove (NOVO - prebačeno)
+├── EditableCell.tsx                  ✅ Editable cell komponenta
+├── ConflictDialog.tsx                ✅ Conflict dialog
+├── DocumentHeader.tsx                ❌ ZASTARELO (stara verzija)
+├── DocumentForm.tsx                  ❌ ZASTARELO (stara verzija)
+├── DocumentItemsTable.tsx            ❌ ZASTARELO (zamenjeno sa StavkeDokumentaTable)
+├── DocumentCostsTable.tsx            ❌ ZASTARELO (zamenjeno sa TroskoviTable)
+├── index.ts                          ✅ Exports
+└── README.md                         ✅ Ova datoteka
 ```
 
-## Component Hierarchy
+## 🆕 Nove Komponente (prebačene iz root)
 
-```
-<App>
-  <Layout>
-    <Header>
-    <Navigation>
-    <MainContent>
-      <DocumentEditPage>
-        <DocumentForm>
-          <Tabs>
-            <DocumentHeader />        # Tab 1
-            <DocumentItems>           # Tab 2
-              <ItemsTable>
-                <EditableCell /> x N
-              </ItemsTable>
-            </DocumentItems>
-            <DocumentCosts />         # Tab 3
-          </Tabs>
-        </DocumentForm>
-        <ConflictDialog />  # Popup na 409
-      </DocumentEditPage>
-    </MainContent>
-  </Layout>
-</App>
-```
+### 1. TabsComponent.tsx
+- **Uloga**: Tab navigacija sa tri taba
+- **Koristi se u**: DocumentCreatePage
+- **Props**: `tabs: TabConfig[]`, `defaultTab?: string`
 
-## ItemsTable (KRITIČNO)
+### 2. StavkeDokumentaTable.tsx
+- **Uloga**: Tabela sa stavkama dokumenta
+- **Koristi se u**: DocumentCreatePage (Tab 2: Stavke)
+- **Karakteristike**: 
+  - Inline edit
+  - Add/Delete redova
+  - Auto-kalkulacija iznosa
+  - UKUPNO red
 
-**Features:**
+### 3. TroskoviTable.tsx
+- **Uloga**: Tabela sa zavisnim troškovima
+- **Koristi se u**: DocumentCreatePage (Tab 3: Zavisni Troškovi)
+- **Karakteristike**:
+  - Inline edit
+  - 3 metode raspodele (Po količini, Po vrednosti, Ručna)
+  - Expandable redovi
+  - UKUPNO red
 
-- Excel-like grid sa Material-UI TextFields
-- Tab/Enter navigacija
-- Autosave sa debounce
-- ETag konkurentnost
-- Status indicators (Saving, Saved, Error)
-- Virtualizacija za 200+ redova
+## ❌ Zastarele Komponente
 
-**Props:**
+### Trebalo bi da se obrišu ili prebace u TMP folder:
+
+- `DocumentHeader.tsx` - Zamenjeno sa DocumentCreatePage sa pravilnom strukturom
+- `DocumentForm.tsx` - Zamenjeno sa DocumentCreatePage
+- `DocumentItemsTable.tsx` - Zamenjeno sa StavkeDokumentaTable.tsx
+- `DocumentCostsTable.tsx` - Zamenjeno sa TroskoviTable.tsx
+
+## 📋 Import Pattern
 
 ```typescript
-interface ItemsTableProps {
-  documentId: string;
-}
+// ✅ NOVO - Direktno iz Document foldera
+import TabsComponent from '../components/Document/TabsComponent';
+import StavkeDokumentaTable from '../components/Document/StavkeDokumentaTable';
+import TroskoviTable from '../components/Document/TroskoviTable';
+
+// ❌ STARO - Iz root components
+import TabsComponent from '../components/TabsComponent';
+import StavkeDokumentaTable from '../components/StavkeDokumentaTable';
 ```
+
+## 🎯 Status
+
+- [x] Prebačene sve nove komponente u Document folder
+- [x] Prebačeni svi CSS fajlovi
+- [x] Ažuriran DocumentCreatePage da koristi nove putanje
+- [x] Ažuriran index.ts sa novim exportima
+- [ ] Obrisati stare redundantne komponente (TODO)
+- [ ] Obrisati CSS fajlove iz root komponenti (TODO)
+
+## 🔗 Veze
+
+- **GitHub Issue**: #52 - DocumentCreatePage Integration
+- **Branch**: feature/search-page-gui-refactoring
