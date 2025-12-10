@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import { api } from '../api';
@@ -51,11 +51,13 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
   const defaultDocType = docType || 'UR';
   const { data: combosData, isLoading: combosLoading } = useAllCombos(defaultDocType);
 
-  // PARTNERS (DOBAVLJACI)
+  // PARTNERS (DOBAVLJACI) - SERVER-SIDE SEARCH
   const [partners, setPartners] = useState<PartnerComboDto[]>([]);
   const [partnerSearchTerm, setPartnerSearchTerm] = useState('');
   const [showPartnerDropdown, setShowPartnerDropdown] = useState(false);
   const [selectedPartner, setSelectedPartner] = useState<PartnerComboDto | null>(null);
+  const [partnerSearchLoading, setPartnerSearchLoading] = useState(false);
+  const debounceTimer = useRef<NodeJS.Timeout | null>(null);
 
   // ARTIKLI
   const [artikli, setArtikli] = useState<ArticleComboDto[]>([]);
@@ -89,7 +91,7 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
   const [stavke, setStavke] = useState<Stavka[]>([]);
   const [troskovi, setTroskovi] = useState<Trosak[]>([]);
 
-  // UČITAJ SVE PODATKE
+  // UČITAJ PODATKE (bez dobavljača!)
   useEffect(() => {
     const loadAllData = async () => {
       try {
@@ -100,11 +102,6 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
         setArtikli(articlesData);
         console.log(`✅ Loaded ${articlesData.length} articles`);
         
-        // Učitaj dobavljache
-        const partnersData = await api.lookup.getPartners();
-        setPartners(partnersData);
-        console.log(`✅ Loaded ${partnersData.length} partners`);
-        
         // Učitaj poreske stope
         const taksData = await api.lookup.getTaxRates();
         setPoreskeStope(taksData);
@@ -112,7 +109,6 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
       } catch (err) {
         console.error('❌ Failed to load data:', err);
         setArtikli([]);
-        setPartners([]);
         setPoreskeStope([]);
       } finally {
         setLoadingData(false);
@@ -121,13 +117,61 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
     loadAllData();
   }, []);
 
-  // FILTER PARTNERS
-  const filteredPartners = partnerSearchTerm.trim().length > 0
-    ? partners.filter((p) => {
-        const naziv = (p.naziv || p.name || '').toLowerCase();
-        return naziv.includes(partnerSearchTerm.toLowerCase());
-      })
-    : partners;
+  // SERVER-SIDE PARTNER SEARCH SA DEBOUNCE
+  const handlePartnerSearchChange = useCallback((searchTerm: string) => {
+    setPartnerSearchTerm(searchTerm);
+    setShowPartnerDropdown(true);
+
+    // Očisti prethodni timer
+    if (debounceTimer.current) {
+      clearTimeout(debounceTimer.current);
+    }
+
+    // Ako je manje od 2 karaktera, ne radi pretragu
+    if (searchTerm.trim().length < 2) {
+      setPartners([]);
+      return;
+    }
+
+    // Postavi novi timer za debounce (500ms)
+    setPartnerSearchLoading(true);
+    debounceTimer.current = setTimeout(async () => {
+      try {
+        console.log(`🔍 Searching partners for: "${searchTerm}"...`);
+        const searchResults = await api.lookup.searchPartners(searchTerm, 50);
+        setPartners(searchResults);
+        console.log(`✅ Found ${searchResults.length} partners matching "${searchTerm}"`);
+      } catch (err) {
+        console.error('❌ Error searching partners:', err);
+        setPartners([]);
+      } finally {
+        setPartnerSearchLoading(false);
+      }
+    }, 500);
+  }, []);
+
+  const handlePartnerSelect = (partner: PartnerComboDto) => {
+    setSelectedPartner(partner);
+    setPartnerSearchTerm(partner.naziv || partner.name || '');
+    setFormData({ ...formData, partnerId: partner.idPartner || partner.id });
+    setShowPartnerDropdown(false);
+    console.log(`✅ Selected partner: "${partner.naziv || partner.name}" (ID: ${partner.idPartner || partner.id})`);
+  };
+
+  // KALKULACIJA PDV-a
+  const handleAvansPDVChange = (index: number, field: keyof AvansPDVRow, value: any) => {
+    const updated = [...avansPDV];
+    updated[index] = { ...updated[index], [field]: value };
+    
+    if (field === 'poreskaStopaVal' || field === 'osnov') {
+      const stopaVal = field === 'poreskaStopaVal' ? value : updated[index].poreskaStopaVal;
+      const osnov = field === 'osnov' ? value : updated[index].osnov;
+      updated[index].pdvIznos = (osnov * stopaVal) / 100;
+      updated[index].ukupno = osnov + updated[index].pdvIznos;
+    }
+    
+    setAvansPDV(updated);
+  };
 
   const createMutation = useMutation({
     mutationFn: (data: CreateDocumentDto) => {
@@ -160,28 +204,6 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
       return;
     }
     createMutation.mutate(formData);
-  };
-
-  // KALKULACIJA PDV-a
-  const handleAvansPDVChange = (index: number, field: keyof AvansPDVRow, value: any) => {
-    const updated = [...avansPDV];
-    updated[index] = { ...updated[index], [field]: value };
-    
-    if (field === 'poreskaStopaVal' || field === 'osnov') {
-      const stopaVal = field === 'poreskaStopaVal' ? value : updated[index].poreskaStopaVal;
-      const osnov = field === 'osnov' ? value : updated[index].osnov;
-      updated[index].pdvIznos = (osnov * stopaVal) / 100;
-      updated[index].ukupno = osnov + updated[index].pdvIznos;
-    }
-    
-    setAvansPDV(updated);
-  };
-
-  const handlePartnerSelect = (partner: PartnerComboDto) => {
-    setSelectedPartner(partner);
-    setPartnerSearchTerm(partner.naziv || partner.name || '');
-    setFormData({ ...formData, partnerId: partner.idPartner || partner.id });
-    setShowPartnerDropdown(false);
   };
 
   const docTypeLabel = DOCUMENT_TYPES.find(t => t.code === defaultDocType)?.label || 'Novi Dokument';
@@ -266,25 +288,27 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
           <div className={styles.formSection}>
             <div className={styles.formSectionTitle}>🏢 DOBAVLJAČ I MAGACIN</div>
             <div className={styles.formRow}>
-              {/* DOBAVLJAČ - SEARCHABLE INPUT SA DROPDOWN */}
+              {/* DOBAVLJAČ - SERVER-SIDE SEARCH SA DEBOUNCE */}
               <div className={styles.formGroup}>
-                <label>Dobavljač:</label>
+                <label>Dobavljač (min. 2 karaktera):</label>
                 <div className={styles.autocompleteContainer}>
-                  <input
-                    type="text"
-                    className={styles.autocompleteInput}
-                    value={partnerSearchTerm}
-                    onChange={(e) => {
-                      setPartnerSearchTerm(e.target.value);
-                      setShowPartnerDropdown(true);
-                    }}
-                    onFocus={() => setShowPartnerDropdown(true)}
-                    onBlur={() => setTimeout(() => setShowPartnerDropdown(false), 200)}
-                    placeholder="Unesite naziv dobavljača..."
-                  />
-                  {showPartnerDropdown && filteredPartners.length > 0 && (
+                  <div className={styles.inputWrapper} style={{ position: 'relative' }}>
+                    <input
+                      type="text"
+                      className={styles.autocompleteInput}
+                      value={partnerSearchTerm}
+                      onChange={(e) => handlePartnerSearchChange(e.target.value)}
+                      onFocus={() => setShowPartnerDropdown(true)}
+                      onBlur={() => setTimeout(() => setShowPartnerDropdown(false), 200)}
+                      placeholder="Unesite najmanje 2 karaktera..."
+                    />
+                    {partnerSearchLoading && (
+                      <span style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', color: '#666' }}>⏳</span>
+                    )}
+                  </div>
+                  {showPartnerDropdown && partnerSearchTerm.trim().length >= 2 && partners.length > 0 && (
                     <div className={`${styles.autocompleteDropdown} ${styles.show}`}>
-                      {filteredPartners.slice(0, 50).map((partner) => (
+                      {partners.slice(0, 50).map((partner) => (
                         <div
                           key={partner.idPartner || partner.id}
                           className={styles.autocompleteItem}
@@ -293,17 +317,31 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
                           {partner.naziv || partner.name}
                         </div>
                       ))}
-                      {filteredPartners.length > 50 && (
+                      {partners.length > 50 && (
                         <div className={styles.autocompleteItem} style={{ fontStyle: 'italic', color: '#999' }}>
-                          ... i još {filteredPartners.length - 50}
+                          ... i još {partners.length - 50}
                         </div>
                       )}
                     </div>
                   )}
-                  {showPartnerDropdown && partnerSearchTerm.trim().length > 0 && filteredPartners.length === 0 && (
+                  {showPartnerDropdown && partnerSearchTerm.trim().length >= 2 && !partnerSearchLoading && partners.length === 0 && (
                     <div className={`${styles.autocompleteDropdown} ${styles.show}`}>
                       <div className={styles.autocompleteItem} style={{ color: '#999' }}>
-                        Nema rezultata
+                        Nema rezultata za "{partnerSearchTerm}"
+                      </div>
+                    </div>
+                  )}
+                  {showPartnerDropdown && partnerSearchTerm.trim().length >= 2 && partnerSearchLoading && (
+                    <div className={`${styles.autocompleteDropdown} ${styles.show}`}>
+                      <div className={styles.autocompleteItem} style={{ color: '#999' }}>
+                        Pretražujem...
+                      </div>
+                    </div>
+                  )}
+                  {showPartnerDropdown && partnerSearchTerm.trim().length < 2 && (
+                    <div className={`${styles.autocompleteDropdown} ${styles.show}`}>
+                      <div className={styles.autocompleteItem} style={{ color: '#999' }}>
+                        Unesite najmanje 2 karaktera
                       </div>
                     </div>
                   )}
