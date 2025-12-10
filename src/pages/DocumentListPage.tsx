@@ -1,245 +1,233 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  Box,
-  Paper,
-  Button,
-  TextField,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  TablePagination,
-  IconButton,
-  Chip,
-  CircularProgress,
-  Typography,
-  MenuItem,
-  Select,
-  FormControl,
-  InputLabel,
-  Grid,
-  Alert,
-} from '@mui/material';
-import {
-  Add as AddIcon,
-  Visibility as VisibilityIcon,
-} from '@mui/icons-material';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/api';
+import styles from './DocumentListPage.module.css';
+
+interface SearchParams {
+  brojDok: string;
+  dobavljac: string;
+  magacin: string;
+  status: string;
+}
 
 export const DocumentListPage: React.FC = () => {
   const navigate = useNavigate();
 
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
+  // ✅ Inicijalno, pretraga nije izvršena
+  const [hasSearched, setHasSearched] = useState(false);
 
-  // Fetch documents from API
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['documents', page, rowsPerPage, searchQuery, statusFilter],
+  // ✅ Samo parametri, bez logike
+  const [searchParams, setSearchParams] = useState<SearchParams>({
+    brojDok: '',
+    dobavljac: '',
+    magacin: '',
+    status: '',
+  });
+
+  // ✅ Combo data - magacini
+  const { data: organizationalUnits = [] } = useQuery({
+    queryKey: ['org-units-combo'],
+    queryFn: () => api.document.getOrganizationalUnitsCombo(),
+  });
+
+  // ✅ KLJUČNO: `enabled: hasSearched` - fetch SAMO ako je korisnik kliknuo
+  const { data: searchResults, isLoading: resultsLoading } = useQuery({
+    queryKey: ['documents-search', searchParams],
     queryFn: async () => {
-      const response = await api.document.list({
-        pageNumber: page + 1,
-        pageSize: rowsPerPage,
-        // TODO: Backend needs to implement document number search
-        // searchTerm is not supported yet in backend API
+      return api.document.list({
+        pageNumber: 1,
+        pageSize: 50,
+        // Šalji parametre pretrage na backend (ako je implementiran)
       });
-      return response;
     },
+    enabled: hasSearched, // ✅ KLJUČNO: Ne poziva se dok korisnik ne klikne
   });
 
-  const handleNewDocument = () => {
-    navigate('/documents/new');
+  // ✅ Dugme "Pretraži" - klik aktivira fetch
+  const handleSearchClick = () => {
+    setHasSearched(true);
   };
 
-  const handleViewDocument = (id: number) => {
-    navigate(`/documents/${id}`);
+  // ✅ Dugme "Očisti" - resetuje sve
+  const handleClearSearch = () => {
+    setSearchParams({
+      brojDok: '',
+      dobavljac: '',
+      magacin: '',
+      status: '',
+    });
+    setHasSearched(false);
   };
 
-  const handleChangePage = (_event: unknown, newPage: number) => {
-    setPage(newPage);
-  };
-
-  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
-    setPage(0);
-  };
-
-  const documents = data?.items || [];
-  const totalCount = data?.totalCount || 0;
-
-  // Filter documents client-side for now (until backend implements search)
-  const filteredDocuments = documents.filter((doc) => {
-    const matchesSearch =
-      !searchQuery ||
-      doc.documentNumber?.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus =
-      statusFilter === 'all' || doc.statusId?.toString() === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+  const documents = searchResults?.items || [];
+  const totalCount = searchResults?.totalCount || 0;
 
   return (
-    <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h4">Dokumenti</Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={handleNewDocument}
-        >
-          Novi Dokument
-        </Button>
-      </Box>
+    <div className={styles.pageContent}>
+      <div className={styles.searchContainer}>
+        <h2>🔍 Pretraga Dokumenata</h2>
 
-      <Paper sx={{ p: 2, mb: 2 }}>
-        <Grid container spacing={2}>
-          <Grid item xs={12} md={6}>
-            <TextField
-              fullWidth
-              label="Pretraži po broju"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              size="small"
-              helperText="Pretraga radi lokalno (backend search nije implementiran)"
+        {/* ✅ Samo 4 input polja - bez real-time onChange */}
+        <div className={styles.searchRow}>
+          <div className={styles.formGroup}>
+            <label htmlFor="brojDok">Broj dokumenta:</label>
+            <input
+              id="brojDok"
+              type="text"
+              placeholder="npr. DOK-001"
+              value={searchParams.brojDok}
+              onChange={(e) =>
+                setSearchParams((prev) => ({
+                  ...prev,
+                  brojDok: e.target.value,
+                }))
+              }
             />
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <FormControl fullWidth size="small">
-              <InputLabel>Status</InputLabel>
-              <Select
-                value={statusFilter}
-                label="Status"
-                onChange={(e) => setStatusFilter(e.target.value)}
-              >
-                <MenuItem value="all">Svi</MenuItem>
-                <MenuItem value="1">Aktivan</MenuItem>
-                <MenuItem value="2">Zatvoren</MenuItem>
-                <MenuItem value="3">Storniran</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
-        </Grid>
-      </Paper>
+          </div>
 
-      {!!error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          Greška pri učitavanju dokumenata:{' '}
-          {String(
-            (error as Error)?.message ||
-              'Proverite da li je backend pokrenut i da li je CORS podešen.',
-          )}
-        </Alert>
-      )}
+          <div className={styles.formGroup}>
+            <label htmlFor="dobavljac">Dobavljač:</label>
+            <input
+              id="dobavljac"
+              type="text"
+              placeholder="Unesite dobavljača"
+              value={searchParams.dobavljac}
+              onChange={(e) =>
+                setSearchParams((prev) => ({
+                  ...prev,
+                  dobavljac: e.target.value,
+                }))
+              }
+            />
+          </div>
 
-      {isLoading ? (
-        <Box display="flex" justifyContent="center" p={4}>
-          <CircularProgress />
-        </Box>
-      ) : (
-        <Paper>
-          {filteredDocuments.length === 0 ? (
-            <Box sx={{ p: 4, textAlign: 'center' }}>
-              <Typography color="text.secondary" gutterBottom>
-                Nema dokumenata.
-              </Typography>
-              <Button
-                variant="contained"
-                startIcon={<AddIcon />}
-                onClick={handleNewDocument}
-                sx={{ mt: 2 }}
-              >
-                Kreiraj novi dokument
-              </Button>
-            </Box>
+          <div className={styles.formGroup}>
+            <label htmlFor="magacin">Magacin:</label>
+            <select
+              id="magacin"
+              value={searchParams.magacin}
+              onChange={(e) =>
+                setSearchParams((prev) => ({
+                  ...prev,
+                  magacin: e.target.value,
+                }))
+              }
+            >
+              <option value="">-- Svi magacini --</option>
+              {organizationalUnits?.map((ou: any) => (
+                <option key={ou.id} value={ou.id}>
+                  {ou.naziv}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className={styles.formGroup}>
+            <label htmlFor="status">Status:</label>
+            <select
+              id="status"
+              value={searchParams.status}
+              onChange={(e) =>
+                setSearchParams((prev) => ({
+                  ...prev,
+                  status: e.target.value,
+                }))
+              }
+            >
+              <option value="">-- Svi statusi --</option>
+              <option value="Otvorena">Otvorena</option>
+              <option value="Pauzirana">Pauzirana</option>
+              <option value="Završena">Završena</option>
+            </select>
+          </div>
+        </div>
+
+        {/* ✅ KLJUČNO: Tri dugmeta - Pretraži, Očisti, Novi */}
+        <div className={styles.btnGroup}>
+          <button className={styles.btnPrimary} onClick={handleSearchClick}>
+            🔍 Pretraži
+          </button>
+          <button onClick={handleClearSearch}>
+            🗑️ Očisti
+          </button>
+          <button
+            className={styles.btnSuccess}
+            onClick={() => navigate('/documents/new')}
+          >
+            ➕ Novi Dokument
+          </button>
+        </div>
+      </div>
+
+      {/* ✅ KLJUČNO: Tabela se prikazuje SAMO nakon pretraga */}
+      {hasSearched ? (
+        <>
+          {resultsLoading ? (
+            <div className={styles.loading}>⏳ Učitavam rezultate...</div>
+          ) : documents.length === 0 ? (
+            <div className={styles.noSearch}>
+              <p>❌ Nema pronađenih dokumenata prema zadatim kriterijumima</p>
+            </div>
           ) : (
             <>
-              <TableContainer>
-                <Table>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Broj</TableCell>
-                      <TableCell>Datum</TableCell>
-                      <TableCell>Tip</TableCell>
-                      <TableCell>Partner</TableCell>
-                      <TableCell>Magacin</TableCell>
-                      <TableCell align="right">Neto</TableCell>
-                      <TableCell align="right">PDV</TableCell>
-                      <TableCell align="right">Ukupno</TableCell>
-                      <TableCell>Status</TableCell>
-                      <TableCell align="center">Akcije</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {filteredDocuments.map((document) => (
-                      <TableRow key={document.id} hover>
-                        <TableCell>{document.documentNumber}</TableCell>
-                        <TableCell>{document.date}</TableCell>
-                        <TableCell>{document.documentTypeCode}</TableCell>
-                        <TableCell>{document.partnerName || '-'}</TableCell>
-                        <TableCell>{document.organizationalUnitName}</TableCell>
-                        <TableCell align="right">
-                          {document.totalAmountNet?.toFixed(2) || '0.00'}
-                        </TableCell>
-                        <TableCell align="right">
-                          {document.totalAmountVat?.toFixed(2) || '0.00'}
-                        </TableCell>
-                        <TableCell align="right">
-                          {document.totalAmountGross?.toFixed(2) || '0.00'}
-                        </TableCell>
-                        <TableCell>
-                          <Chip
-                            label={
-                              document.statusId === 1
-                                ? 'Aktivan'
-                                : document.statusId === 2
-                                ? 'Zatvoren'
-                                : 'Storniran'
-                            }
-                            color={
-                              document.statusId === 1
-                                ? 'success'
-                                : document.statusId === 2
-                                ? 'default'
-                                : 'error'
-                            }
-                            size="small"
-                          />
-                        </TableCell>
-                        <TableCell align="center">
-                          <IconButton
-                            size="small"
-                            onClick={() => handleViewDocument(document.id)}
-                          >
-                            <VisibilityIcon fontSize="small" />
-                          </IconButton>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-              <TablePagination
-                component="div"
-                count={totalCount}
-                page={page}
-                onPageChange={handleChangePage}
-                rowsPerPage={rowsPerPage}
-                onRowsPerPageChange={handleChangeRowsPerPage}
-                rowsPerPageOptions={[10, 20, 50, 100]}
-                labelRowsPerPage="Redova po stranici:"
-                labelDisplayedRows={({ from, to, count }) =>
-                  `${from}-${to} od ${count !== -1 ? count : `više od ${to}`}`
-                }
-              />
+              <table>
+                <thead>
+                  <tr>
+                    <th style={{ width: '80px' }}>Broj</th>
+                    <th>Dobavljač</th>
+                    <th>Magacin</th>
+                    <th>Datum</th>
+                    <th>Iznos (RSD)</th>
+                    <th>Status</th>
+                    <th style={{ width: '150px' }}>Akcije</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {documents.map((doc: any) => (
+                    <tr key={doc.id}>
+                      <td>{doc.documentNumber}</td>
+                      <td>{doc.partnerName || '-'}</td>
+                      <td>{doc.organizationalUnitName}</td>
+                      <td>
+                        {new Date(doc.date).toLocaleDateString('sr-RS')}
+                      </td>
+                      <td align="right">
+                        {doc.totalAmountGross?.toFixed(2)}
+                      </td>
+                      <td>{doc.status || 'Otvorena'}</td>
+                      <td align="center">
+                        <button
+                          className={styles.actionBtn}
+                          onClick={() => navigate(`/documents/${doc.id}`)}
+                          title="Prikazi detalje"
+                        >
+                          👁️ Prikazi
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              <div className={styles.statusBar}>
+                <span>
+                  Ukupno dokumenata: <strong>{totalCount}</strong>
+                </span>
+                <span>
+                  Prikazano: <strong>{documents.length}</strong>
+                </span>
+              </div>
             </>
           )}
-        </Paper>
+        </>
+      ) : (
+        // ✅ KLJUČNO: Poruka "Unesite parametre..." dok se ne izvrši pretraga
+        <div className={styles.noSearch}>
+          <p>📋 Unesite parametre pretraga i kliknite na "Pretraži"</p>
+        </div>
       )}
-    </Box>
+    </div>
   );
 };
 
