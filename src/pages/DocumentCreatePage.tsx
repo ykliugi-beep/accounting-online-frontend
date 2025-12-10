@@ -27,6 +27,7 @@ import type {
   OrganizationalUnitComboDto,
   ReferentComboDto,
   TaxationMethodComboDto,
+  ArticleComboDto,
 } from '../types/api.types';
 import type { TabConfig } from '../components/Document/TabsComponent';
 import type { Stavka } from '../components/Document/StavkeDokumentaTable';
@@ -76,6 +77,7 @@ function toISODateTime(dateStr: string | null): string | null {
 export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType }) => {
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
+  const [loadingArticles, setLoadingArticles] = useState(false);
 
   // Use docType prop or default to 'UR'
   const defaultDocType = docType || 'UR';
@@ -96,16 +98,33 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
   const referents = combosData?.referents;
   const costTypes = combosData?.costTypes || [];
 
-  // Artikli nisu deo useAllCombos jer je payload prevelik za inicijalni load
-  const {
-    data: artikli = [],
-    refetch: refetchArtikli,
-  } = useArticles();
+  // ✅ ARTICLES - Load directly via API
+  const [artikli, setArtikli] = useState<ArticleComboDto[]>([]);
 
   useEffect(() => {
-    // Ručno refetch da bismo učitali artikle samo kada je stranica potrebna
-    refetchArtikli();
-  }, [refetchArtikli]);
+    /**
+     * ✅ FIX: Load articles directly from API
+     * The useArticles hook has enabled: false, so we bypass it
+     * and fetch articles directly when page loads
+     */
+    const loadArticles = async () => {
+      try {
+        setLoadingArticles(true);
+        console.log('📦 Loading articles from API...');
+        const data = await api.lookup.getArticles();
+        console.log(`✅ Loaded ${data.length} articles`);
+        setArtikli(data);
+      } catch (err) {
+        console.error('❌ Failed to load articles:', err);
+        // Set empty array so UI doesn't break
+        setArtikli([]);
+      } finally {
+        setLoadingArticles(false);
+      }
+    };
+
+    loadArticles();
+  }, []);
 
   // ✅ Stavke state
   const [stavke, setStavke] = useState<Stavka[]>([]);
@@ -484,13 +503,20 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
       label: 'Stavke Dokumenta',
       content: (
         <Box sx={{ p: 3 }}>
-          <StavkeDokumentaTable 
-            stavke={stavke}
-            onAddRow={handleAddStavka}
-            onDeleteRow={handleDeleteStavka}
-            onUpdateRow={handleUpdateStavka}
-            artikli={artikli}
-          />
+          {loadingArticles ? (
+            <Box display="flex" alignItems="center" gap={2}>
+              <CircularProgress size={20} />
+              <Typography>Učitavam artikle...</Typography>
+            </Box>
+          ) : (
+            <StavkeDokumentaTable 
+              stavke={stavke}
+              onAddRow={handleAddStavka}
+              onDeleteRow={handleDeleteStavka}
+              onUpdateRow={handleUpdateStavka}
+              artikli={artikli}
+            />
+          )}
         </Box>
       ),
     },
@@ -541,7 +567,7 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
         </Alert>
       )}
 
-      {combosLoading && (
+      {(combosLoading || loadingArticles) && (
         <Alert severity="info" sx={{ mb: 3 }}>
           <Box display="flex" alignItems="center" gap={2}>
             <CircularProgress size={20} />
@@ -566,7 +592,7 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
             startIcon={
               createMutation.isPending ? <CircularProgress size={20} /> : <Save />
             }
-            disabled={createMutation.isPending || combosLoading}
+            disabled={createMutation.isPending || combosLoading || loadingArticles}
           >
             {createMutation.isPending ? 'Sačuvavam...' : 'Sačuvaj i Nastavi'}
           </Button>

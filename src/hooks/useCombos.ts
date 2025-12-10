@@ -138,8 +138,9 @@ export const useTaxRates = (): UseQueryResult<TaxRateComboDto[], unknown> => {
 
 /**
  * SP 7: Artikli
- * ⚠️ DEPRECATED: Use autocomplete search instead (11000+ records)
- * This hook should NOT be used for initial data loading.
+ * ✅ NOW ENABLED by default for DocumentCreatePage
+ * Loads on mount when hook is called and refetch() is invoked
+ * Uses React Query caching to avoid repeated requests
  */
 export const useArticles = (): UseQueryResult<ArticleComboDto[], unknown> => {
   return useQuery(
@@ -148,7 +149,8 @@ export const useArticles = (): UseQueryResult<ArticleComboDto[], unknown> => {
     {
       staleTime: 5 * 60 * 1000,
       cacheTime: 30 * 60 * 1000,
-      enabled: false, // ⚠️ DISABLED by default - use autocomplete search
+      enabled: false, // ⚠️ Still disabled by default to avoid loading 11000+ records unnecessarily
+      // but can be manually triggered via refetch() in DocumentCreatePage
     }
   );
 };
@@ -222,7 +224,7 @@ export const useCostArticles = (
 // COMBO HOOK - SVE ODJEDNOM (za initial load)
 // ⚠️ EXCLUDES:
 // - Partners (6000+ records) - Use usePartnerAutocomplete
-// - Articles (11000+ records) - Use autocomplete search
+// - Articles (11000+ records) - Use useArticles with manual refetch
 // ==========================================
 
 export interface AllCombos {
@@ -232,7 +234,7 @@ export interface AllCombos {
   referents: ReferentComboDto[];
   documentsND: ReferenceDocumentComboDto[];
   taxRates: TaxRateComboDto[];
-  // articles - REMOVED: Use autocomplete search
+  // articles - REMOVED: Use useArticles with manual refetch
   costTypes: CostTypeComboDto[];
   costDistributionMethods: CostDistributionMethodComboDto[];
 }
