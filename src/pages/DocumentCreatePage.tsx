@@ -1,37 +1,21 @@
 import React, { useEffect, useState } from 'react';
-import {
-  Box,
-  Paper,
-  Typography,
-  Button,
-  TextField,
-  Grid,
-  MenuItem,
-  Alert,
-  CircularProgress,
-  Autocomplete,
-  Divider,
-} from '@mui/material';
-import { Save, ArrowBack } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import { api } from '../api';
-import { useAllCombos, useArticles } from '../hooks/useCombos';
+import { useAllCombos } from '../hooks/useCombos';
 import { usePartnerAutocomplete, formatPartnerLabel } from '../hooks/usePartnerAutocomplete';
-import TabsComponent from '../components/Document/TabsComponent';
 import StavkeDokumentaTable from '../components/Document/StavkeDokumentaTable';
 import TroskoviTable from '../components/Document/TroskoviTable';
-import type { 
+import type {
   CreateDocumentDto,
   PartnerComboDto,
   OrganizationalUnitComboDto,
   ReferentComboDto,
-  TaxationMethodComboDto,
   ArticleComboDto,
 } from '../types/api.types';
-import type { TabConfig } from '../components/Document/TabsComponent';
 import type { Stavka } from '../components/Document/StavkeDokumentaTable';
 import type { Trosak } from '../components/Document/TroskoviTable';
+import styles from './DocumentCreatePage.module.css';
 
 const DOCUMENT_TYPES = [
   { code: 'UR', label: 'Ulazna Kalkulacija VP' },
@@ -40,98 +24,38 @@ const DOCUMENT_TYPES = [
   { code: 'AR', label: 'Avansni Račun' },
 ];
 
-const STATUS_OPTIONS = [
-  { value: 'Otvorena', label: 'Otvorena' },
-  { value: 'Pauzirana', label: 'Pauzirana' },
-  { value: 'Završena', label: 'Završena' },
-];
-
-const TAXATION_OPTIONS = [
-  { value: 'PDV na uvozu', label: 'PDV na uvozu' },
-  { value: 'PDV na nabavci', label: 'PDV na nabavci' },
-  { value: 'Bez PDV-a', label: 'Bez PDV-a' },
-];
-
-const CURRENCY_OPTIONS = [
-  { value: 'RSD', label: 'RSD' },
-  { value: 'EUR', label: 'EUR' },
-  { value: 'USD', label: 'USD' },
-];
-
-// Props interface for route-based document type
 interface DocumentCreatePageProps {
   docType?: string;
 }
 
-/**
- * ⚠️ CRITICAL: Transform date string to ISO DateTime format
- */
 function toISODateTime(dateStr: string | null): string | null {
   if (!dateStr) return null;
-  if (dateStr.includes('T')) {
-    return dateStr;
-  }
+  if (dateStr.includes('T')) return dateStr;
   return `${dateStr}T00:00:00`;
 }
 
 export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType }) => {
   const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState('zaglavlje');
   const [error, setError] = useState<string | null>(null);
-  const [loadingArticles, setLoadingArticles] = useState(false);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [loadingData, setLoadingData] = useState(false);
 
-  // Use docType prop or default to 'UR'
   const defaultDocType = docType || 'UR';
-  const { data: combosData, isLoading: combosLoading, error: combosError } = useAllCombos(defaultDocType);
+  const { data: combosData, isLoading: combosLoading } = useAllCombos(defaultDocType);
 
-  // 🚀 Partner autocomplete with search
+  // DOBAVLJAČ AUTOCOMPLETE - čeka 2+ karaktera
   const [partnerSearchTerm, setPartnerSearchTerm] = useState('');
+  const [showPartnerDropdown, setShowPartnerDropdown] = useState(false);
   const [selectedPartner, setSelectedPartner] = useState<PartnerComboDto | null>(null);
-  const { 
-    partners, 
-    isLoading: partnersLoading, 
-    isEmpty,
-    needsMoreChars 
-  } = usePartnerAutocomplete(partnerSearchTerm);
+  const { partners } = usePartnerAutocomplete(partnerSearchTerm);
 
-  const organizationalUnits = combosData?.orgUnits;
-  const taxationMethods = combosData?.taxationMethods;
-  const referents = combosData?.referents;
-  const costTypes = combosData?.costTypes || [];
-
-  // ✅ ARTICLES - Load directly via API
+  // ARTIKLI AUTOCOMPLETE
+  const [articleSearchTerm, setArticleSearchTerm] = useState('');
+  const [showArticleDropdown, setShowArticleDropdown] = useState(false);
   const [artikli, setArtikli] = useState<ArticleComboDto[]>([]);
 
-  useEffect(() => {
-    /**
-     * ✅ FIX: Load articles directly from API
-     * The useArticles hook has enabled: false, so we bypass it
-     * and fetch articles directly when page loads
-     */
-    const loadArticles = async () => {
-      try {
-        setLoadingArticles(true);
-        console.log('📦 Loading articles from API...');
-        const data = await api.lookup.getArticles();
-        console.log(`✅ Loaded ${data.length} articles`);
-        setArtikli(data);
-      } catch (err) {
-        console.error('❌ Failed to load articles:', err);
-        // Set empty array so UI doesn't break
-        setArtikli([]);
-      } finally {
-        setLoadingArticles(false);
-      }
-    };
-
-    loadArticles();
-  }, []);
-
-  // ✅ Stavke state
-  const [stavke, setStavke] = useState<Stavka[]>([]);
-
-  // ✅ Troškovi state
-  const [troskovi, setTroskovi] = useState<Trosak[]>([]);
-
+  // FORM DATA
   const [formData, setFormData] = useState<CreateDocumentDto>({
     documentTypeCode: defaultDocType,
     documentNumber: '',
@@ -144,15 +68,36 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
     partnerDocumentNumber: null,
     partnerDocumentDate: null,
     taxationMethodId: null,
-    statusId: 1, // Draft
+    statusId: 1,
     currencyId: null,
     exchangeRate: null,
     notes: null,
   });
 
+  // STAVKE I TROŠKOVI
+  const [stavke, setStavke] = useState<Stavka[]>([]);
+  const [troskovi, setTroskovi] = useState<Trosak[]>([]);
+
+  // UČITAJ ARTIKLE
+  useEffect(() => {
+    const loadArticles = async () => {
+      try {
+        setLoadingData(true);
+        const data = await api.lookup.getArticles();
+        setArtikli(data);
+        console.log(`✅ Loaded ${data.length} articles`);
+      } catch (err) {
+        console.error('❌ Failed to load articles:', err);
+        setArtikli([]);
+      } finally {
+        setLoadingData(false);
+      }
+    };
+    loadArticles();
+  }, []);
+
   const createMutation = useMutation({
     mutationFn: (data: CreateDocumentDto) => {
-      // ✅ TRANSFORM DATES TO ISO FORMAT BEFORE SENDING
       const payload: CreateDocumentDto = {
         ...data,
         date: toISODateTime(data.date) || data.date,
@@ -160,454 +105,285 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
         currencyDate: toISODateTime(data.currencyDate),
         partnerDocumentDate: toISODateTime(data.partnerDocumentDate),
       };
-
-      console.log('📦 Sending payload:', payload);
       return api.document.create(payload);
     },
     onSuccess: (newDocument) => {
-      console.log('✅ Document Created:', newDocument);
-      navigate(`/documents/${newDocument.id}`);
+      setSuccess('Dokument je uspešno sačuvan!');
+      setTimeout(() => navigate(`/documents/${newDocument.id}`), 1000);
     },
     onError: (err: any) => {
-      console.error('❌ API ERROR:', err);
-      let errorMsg = 'Greška pri kreiranju dokumenta';
-      if (err?.errors && Object.keys(err.errors).length > 0) {
-        const errorDetails = Object.entries(err.errors)
-          .map(([field, messages]: [string, any]) => `${field}: ${Array.isArray(messages) ? messages.join(', ') : messages}`)
-          .join('\n');
-        errorMsg = `Prosleđeni podaci nisu prošli validaciju:\n${errorDetails}`;
-      } else if (err?.message) {
-        errorMsg = err.message;
-      }
-      setError(errorMsg);
+      setError(err?.message || 'Greška pri kreiranju dokumenta');
     },
   });
 
-  const handleChange = (field: keyof CreateDocumentDto, value: any) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
-    setError(null);
-  };
+  // FILTERIRANI DROPDOWN STAVKE
+  const filteredPartners = partnerSearchTerm.length >= 2
+    ? partners.filter(p => formatPartnerLabel(p).toLowerCase().includes(partnerSearchTerm.toLowerCase()))
+    : [];
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const filteredArticles = articleSearchTerm.length >= 2
+    ? artikli.filter(a => (a.nazivArtikla || a.name || '').toLowerCase().includes(articleSearchTerm.toLowerCase()))
+    : [];
+
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Validacija
     if (!formData.documentNumber) {
       setError('Broj dokumenta je obavezan');
       return;
     }
-    if (!formData.organizationalUnitId || formData.organizationalUnitId === 0) {
+    if (!formData.organizationalUnitId) {
       setError('Magacin je obavezan');
       return;
     }
-    
     createMutation.mutate(formData);
   };
 
-  const handleCancel = () => {
-    navigate(-1);
-  };
-
-  // Get document type label
   const docTypeLabel = DOCUMENT_TYPES.find(t => t.code === defaultDocType)?.label || 'Novi Dokument';
 
-  // ✅ STAVKE HANDLERS
-  const handleAddStavka = () => {
-    const newStavka: Stavka = {
-      idArtikal: 0,
-      nazivArtikal: '',
-      jedinicaMere: '',
-      kolicina: 0,
-      jedinicnaCena: 0,
-      iznos: 0,
-    };
-    setStavke([...stavke, newStavka]);
-  };
+  return (
+    <div className={styles.container}>
+      <div className={styles.header}>
+        <h1>{docTypeLabel}</h1>
+        <button onClick={() => navigate(-1)} className={styles.btnPrimary}>
+          ← Nazad
+        </button>
+      </div>
 
-  const handleDeleteStavka = (index: number) => {
-    setStavke(stavke.filter((_, i) => i !== index));
-  };
+      {error && <div className={`${styles.alert} ${styles.alertDanger}`}>{error}</div>}
+      {success && <div className={`${styles.alert} ${styles.alertSuccess}`}>{success}</div>}
 
-  const handleUpdateStavka = (index: number, stavka: Stavka) => {
-    const updated = [...stavke];
-    updated[index] = stavka;
-    setStavke(updated);
-  };
+      <div className={styles.btnGroup}>
+        <button className={styles.btnSuccess} onClick={handleSubmit} disabled={createMutation.isPending}>
+          💾 {createMutation.isPending ? 'Čuvam...' : 'Sačuvaj Dokument'}
+        </button>
+        <button className={styles.btnPrimary} onClick={() => window.print()}>
+          🖨️ Štampa
+        </button>
+      </div>
 
-  // ✅ TROSKOVI HANDLERS
-  const handleAddTrosak = () => {
-    const newTrosak: Trosak = {
-      idVrstaTroska: 0,
-      nazivVrstaTroska: '',
-      opis: '',
-      iznos: 0,
-      nacin: 1, // Po količini
-    };
-    setTroskovi([...troskovi, newTrosak]);
-  };
+      {/* TABS */}
+      <div className={styles.navTabs}>
+        <button
+          className={`${activeTab === 'zaglavlje' ? styles.active : ''}`}
+          onClick={() => setActiveTab('zaglavlje')}
+        >
+          📋 Zaglavlje Dokumenta
+        </button>
+        <button
+          className={`${activeTab === 'stavke' ? styles.active : ''}`}
+          onClick={() => setActiveTab('stavke')}
+        >
+          📦 Stavke Dokumenta
+        </button>
+        <button
+          className={`${activeTab === 'troskovi' ? styles.active : ''}`}
+          onClick={() => setActiveTab('troskovi')}
+        >
+          💰 Zavisni Troškovi
+        </button>
+      </div>
 
-  const handleDeleteTrosak = (index: number) => {
-    setTroskovi(troskovi.filter((_, i) => i !== index));
-  };
+      {/* TAB 1: ZAGLAVLJE */}
+      {activeTab === 'zaglavlje' && (
+        <div className={styles.tabContent + ' ' + styles.active}>
+          <div className={styles.formSection}>
+            <div className={styles.formSectionTitle}>📋 OSNOVNA POLJA DOKUMENTA</div>
+            <div className={styles.formRow}>
+              <div className={styles.formGroup}>
+                <label>Broj dokumenta:</label>
+                <input
+                  type="text"
+                  value={formData.documentNumber}
+                  onChange={(e) => setFormData({ ...formData, documentNumber: e.target.value })}
+                  placeholder="npr. DOK-001"
+                />
+              </div>
+              <div className={styles.formGroup}>
+                <label>Datum dokumenta:</label>
+                <input
+                  type="date"
+                  value={formData.date}
+                  onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                />
+              </div>
+              <div className={styles.formGroup}>
+                <label>Status:</label>
+                <select value="Otvorena" onChange={(e) => {}}>
+                  <option>Otvorena</option>
+                  <option>Pauzirana</option>
+                  <option>Završena</option>
+                </select>
+              </div>
+            </div>
+          </div>
 
-  const handleUpdateTrosak = (index: number, trosak: Trosak) => {
-    const updated = [...troskovi];
-    updated[index] = trosak;
-    setTroskovi(updated);
-  };
+          <div className={styles.formSection}>
+            <div className={styles.formSectionTitle}>🏢 DOBAVLJAČ I MAGACIN</div>
+            <div className={styles.formRow}>
+              {/* DOBAVLJAČ AUTOCOMPLETE */}
+              <div className={styles.formGroup}>
+                <label>Dobavljač:</label>
+                <div className={styles.autocompleteContainer}>
+                  <input
+                    type="text"
+                    className={styles.autocompleteInput}
+                    value={partnerSearchTerm}
+                    onChange={(e) => {
+                      setPartnerSearchTerm(e.target.value);
+                      setShowPartnerDropdown(e.target.value.length >= 2);
+                    }}
+                    onFocus={() => setShowPartnerDropdown(partnerSearchTerm.length >= 2)}
+                    onBlur={() => setTimeout(() => setShowPartnerDropdown(false), 200)}
+                    placeholder="Unesite bar 2 karaktera..."
+                  />
+                  {showPartnerDropdown && filteredPartners.length > 0 && (
+                    <div className={`${styles.autocompleteDropdown} ${styles.show}`}>
+                      {filteredPartners.map((partner) => (
+                        <div
+                          key={partner.idPartner || partner.id}
+                          className={styles.autocompleteItem}
+                          onClick={() => {
+                            setSelectedPartner(partner);
+                            setPartnerSearchTerm(formatPartnerLabel(partner));
+                            setFormData({ ...formData, partnerId: partner.idPartner || partner.id });
+                            setShowPartnerDropdown(false);
+                          }}
+                        >
+                          {formatPartnerLabel(partner)}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
 
-  // ✅ ZAGLAVLJE SEKCIJA - Tab 1 Content sa pravilnom strukturom po specifikaciji
-  const HeaderSection = () => (
-    <Box sx={{ p: 3 }}>
-      {/* OSNOVNA POLJA DOKUMENTA */}
-      <Typography variant="h6" sx={{ mb: 2, fontWeight: 'bold', pb: 1, borderLeft: '3px solid #1976d2', pl: 2 }}>
-        OSNOVNA POLJA DOKUMENTA
-      </Typography>
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid item xs={12} sm={6}>
-          <TextField
-            fullWidth
-            required
-            label="Broj dokumenta"
-            value={formData.documentNumber}
-            onChange={(e) => handleChange('documentNumber', e.target.value)}
-            placeholder="npr. DOK-001"
-            size="small"
+              {/* MAGACIN */}
+              <div className={styles.formGroup}>
+                <label>Magacin:</label>
+                <select
+                  value={formData.organizationalUnitId || ''}
+                  onChange={(e) => setFormData({ ...formData, organizationalUnitId: parseInt(e.target.value) })}
+                >
+                  <option value="">-- Izaberite magacin --</option>
+                  {combosData?.orgUnits?.map((ou) => (
+                    <option key={ou.idOrganizacionaJedinica || ou.id} value={ou.idOrganizacionaJedinica || ou.id}>
+                      {ou.naziv || ou.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* REFERENT */}
+              <div className={styles.formGroup}>
+                <label>Referent:</label>
+                <select
+                  value={formData.referentId || ''}
+                  onChange={(e) => setFormData({ ...formData, referentId: e.target.value ? parseInt(e.target.value) : null })}
+                >
+                  <option value="">-- Izaberite referenta --</option>
+                  {combosData?.referents?.map((ref) => (
+                    <option key={ref.idRadnik || ref.id} value={ref.idRadnik || ref.id}>
+                      {ref.imePrezime || ref.fullName}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div className={styles.formSection}>
+            <div className={styles.formSectionTitle}>💰 FINANSIJSKI PARAMETRI</div>
+            <div className={styles.formRow}>
+              <div className={styles.formGroup}>
+                <label>Valuta:</label>
+                <select value={formData.currencyId || 'RSD'} onChange={(e) => setFormData({ ...formData, currencyId: e.target.value })}>
+                  <option>RSD</option>
+                  <option>EUR</option>
+                  <option>USD</option>
+                </select>
+              </div>
+              <div className={styles.formGroup}>
+                <label>Oporezivanje:</label>
+                <select value={formData.taxationMethodId || 'PDV na nabavci'} onChange={(e) => setFormData({ ...formData, taxationMethodId: e.target.value })}>
+                  <option>PDV na uvozu</option>
+                  <option>PDV na nabavci</option>
+                  <option>Bez PDV-a</option>
+                </select>
+              </div>
+              <div className={styles.formGroup}>
+                <label>Narudžbenica (Ref.):</label>
+                <input
+                  type="text"
+                  value={formData.partnerDocumentNumber || ''}
+                  onChange={(e) => setFormData({ ...formData, partnerDocumentNumber: e.target.value || null })}
+                  placeholder="npr. NAR-2024-001"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className={styles.formSection}>
+            <div className={styles.formSectionTitle}>📝 DODATNE NAPOMENE</div>
+            <div className={styles.formRow}>
+              <div className={styles.formGroup} style={{ gridColumn: '1 / -1' }}>
+                <label>Napomene:</label>
+                <textarea
+                  value={formData.notes || ''}
+                  onChange={(e) => setFormData({ ...formData, notes: e.target.value || null })}
+                  rows={4}
+                  placeholder="Unesite sve relevantne napomene..."
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 2: STAVKE */}
+      {activeTab === 'stavke' && (
+        <div className={styles.tabContent + ' ' + styles.active}>
+          <div className={styles.btnGroup}>
+            <button className={styles.btnSuccess} onClick={() => setStavke([...stavke, { idArtikal: 0, nazivArtikal: '', jedinicaMere: '', kolicina: 0, jedinicnaCena: 0, iznos: 0 }])}>
+              ➕ Dodaj Stavku
+            </button>
+          </div>
+          <StavkeDokumentaTable
+            stavke={stavke}
+            onAddRow={() => setStavke([...stavke, { idArtikal: 0, nazivArtikal: '', jedinicaMere: '', kolicina: 0, jedinicnaCena: 0, iznos: 0 }])}
+            onDeleteRow={(idx) => setStavke(stavke.filter((_, i) => i !== idx))}
+            onUpdateRow={(idx, s) => {
+              const updated = [...stavke];
+              updated[idx] = s;
+              setStavke(updated);
+            }}
+            artikli={artikli}
           />
-        </Grid>
-        <Grid item xs={12} sm={6}>
-          <TextField
-            fullWidth
-            required
-            label="Datum dokumenta"
-            type="date"
-            value={formData.date}
-            onChange={(e) => handleChange('date', e.target.value)}
-            InputLabelProps={{ shrink: true }}
-            size="small"
-          />
-        </Grid>
-        <Grid item xs={12} sm={6}>
-          <TextField
-            fullWidth
-            select
-            label="Status"
-            value={formData.date || 'Otvorena'}
-            onChange={(e) => handleChange('date', e.target.value)}
-            size="small"
-          >
-            {STATUS_OPTIONS.map((opt) => (
-              <MenuItem key={opt.value} value={opt.value}>
-                {opt.label}
-              </MenuItem>
-            ))}
-          </TextField>
-        </Grid>
-      </Grid>
+        </div>
+      )}
 
-      <Divider sx={{ my: 3 }} />
-
-      {/* DOBAVLJAČ I MAGACIN */}
-      <Typography variant="h6" sx={{ mb: 2, fontWeight: 'bold', pb: 1, borderLeft: '3px solid #1976d2', pl: 2 }}>
-        DOBAVLJAČ I MAGACIN
-      </Typography>
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid item xs={12} sm={6}>
-          <Autocomplete
-            options={partners}
-            getOptionLabel={formatPartnerLabel}
-            loading={partnersLoading}
-            value={selectedPartner}
-            onChange={(_, value) => {
-              setSelectedPartner(value);
-              const id = value ? (value.idPartner ?? value.id) : null;
-              handleChange('partnerId', id);
-            }}
-            onInputChange={(_, newValue) => {
-              setPartnerSearchTerm(newValue);
-            }}
-            inputValue={partnerSearchTerm}
-            noOptionsText={
-              needsMoreChars
-                ? 'Unesite bar 2 karaktera za pretragu'
-                : isEmpty
-                ? 'Nema rezultata'
-                : 'Počnite kucati za pretragu...'
-            }
-            renderInput={(params) => (
-              <TextField
-                {...params}
-                label="Dobavljač" 
-                placeholder="-- Izaberite dobavljača --"
-                size="small"
-              />
-            )}
-            slotProps={{
-              paper: {
-                sx: { fontSize: '0.875rem' }
-              }
-            }}
-          />
-        </Grid>
-        <Grid item xs={12} sm={6}>
-          <Autocomplete
-            options={organizationalUnits || []}
-            getOptionLabel={(option) => {
-              const name = option.naziv ?? option.name ?? '';
-              return name;
-            }}
-            loading={combosLoading}
-            value={
-              organizationalUnits?.find(
-                (ou: OrganizationalUnitComboDto) =>
-                  (ou.idOrganizacionaJedinica ?? ou.id) === formData.organizationalUnitId
-              ) || null
-            }
-            onChange={(_, value) => {
-              const id = value ? (value.idOrganizacionaJedinica ?? value.id ?? 0) : 0;
-              handleChange('organizationalUnitId', id);
-            }}
-            renderInput={(params) => (
-              <TextField
-                {...params} 
-                required 
-                label="Magacin" 
-                placeholder="Izaberite magacin"
-                size="small"
-              />
-            )}
-            slotProps={{
-              paper: {
-                sx: { fontSize: '0.875rem' }
-              }
-            }}
-          />
-        </Grid>
-        <Grid item xs={12} sm={6}>
-          <Autocomplete
-            options={referents || []}
-            getOptionLabel={(option) => {
-              const name = option.imePrezime ?? option.fullName ?? '';
-              return name;
-            }}
-            loading={combosLoading}
-            value={
-              referents?.find(
-                (r: ReferentComboDto) => (r.idRadnik ?? r.id) === formData.referentId
-              ) || null
-            }
-            onChange={(_, value) => {
-              const id = value ? (value.idRadnik ?? value.id) : null;
-              handleChange('referentId', id);
-            }}
-            renderInput={(params) => (
-              <TextField
-                {...params}
-                label="Referent" 
-                placeholder="Izaberite referenta"
-                size="small"
-              />
-            )}
-            slotProps={{
-              paper: {
-                sx: { fontSize: '0.875rem' }
-              }
-            }}
-          />
-        </Grid>
-      </Grid>
-
-      <Divider sx={{ my: 3 }} />
-
-      {/* FINANSIJSKI PARAMETRI */}
-      <Typography variant="h6" sx={{ mb: 2, fontWeight: 'bold', pb: 1, borderLeft: '3px solid #1976d2', pl: 2 }}>
-        FINANSIJSKI PARAMETRI
-      </Typography>
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid item xs={12} sm={6}>
-          <TextField
-            fullWidth
-            select
-            label="Valuta"
-            value={formData.currencyId || 'RSD'}
-            onChange={(e) => handleChange('currencyId', e.target.value)}
-            size="small"
-          >
-            {CURRENCY_OPTIONS.map((opt) => (
-              <MenuItem key={opt.value} value={opt.value}>
-                {opt.label}
-              </MenuItem>
-            ))}
-          </TextField>
-        </Grid>
-        <Grid item xs={12} sm={6}>
-          <TextField
-            fullWidth
-            select
-            label="Oporezivanje"
-            value={formData.taxationMethodId || 'PDV na nabavci'}
-            onChange={(e) => handleChange('taxationMethodId', e.target.value)}
-            size="small"
-          >
-            {TAXATION_OPTIONS.map((opt) => (
-              <MenuItem key={opt.value} value={opt.value}>
-                {opt.label}
-              </MenuItem>
-            ))}
-          </TextField>
-        </Grid>
-        <Grid item xs={12} sm={6}>
-          <TextField
-            fullWidth
-            label="Narudžbenica (Ref.)"
-            value={formData.partnerDocumentNumber || ''}
-            onChange={(e) => handleChange('partnerDocumentNumber', e.target.value || null)}
-            placeholder="npr. NAR-2024-001"
-            size="small"
-          />
-        </Grid>
-      </Grid>
-
-      <Divider sx={{ my: 3 }} />
-
-      {/* DODATNE NAPOMENE */}
-      <Typography variant="h6" sx={{ mb: 2, fontWeight: 'bold', pb: 1, borderLeft: '3px solid #1976d2', pl: 2 }}>
-        DODATNE NAPOMENE
-      </Typography>
-      <Grid container spacing={2}>
-        <Grid item xs={12}>
-          <TextField
-            fullWidth
-            label="Napomena"
-            multiline
-            rows={3}
-            value={formData.notes || ''}
-            onChange={(e) => handleChange('notes', e.target.value || null)}
-            placeholder="Unesite sve relevantne napomene..."
-            size="small"
-          />
-        </Grid>
-      </Grid>
-    </Box>
-  );
-
-  // ✅ TABS CONFIGURATION
-  const tabs: TabConfig[] = [
-    {
-      id: 'zaglavlje',
-      label: 'Zaglavlje Dokumenta',
-      content: <HeaderSection />,
-    },
-    {
-      id: 'stavke',
-      label: 'Stavke Dokumenta',
-      content: (
-        <Box sx={{ p: 3 }}>
-          {loadingArticles ? (
-            <Box display="flex" alignItems="center" gap={2}>
-              <CircularProgress size={20} />
-              <Typography>Učitavam artikle...</Typography>
-            </Box>
-          ) : (
-            <StavkeDokumentaTable 
-              stavke={stavke}
-              onAddRow={handleAddStavka}
-              onDeleteRow={handleDeleteStavka}
-              onUpdateRow={handleUpdateStavka}
-              artikli={artikli}
-            />
-          )}
-        </Box>
-      ),
-    },
-    {
-      id: 'troskovi',
-      label: 'Zavisni Troškovi',
-      content: (
-        <Box sx={{ p: 3 }}>
-          <TroskoviTable 
+      {/* TAB 3: TROŠKOVI */}
+      {activeTab === 'troskovi' && (
+        <div className={styles.tabContent + ' ' + styles.active}>
+          <div className={styles.btnGroup}>
+            <button className={styles.btnSuccess} onClick={() => setTroskovi([...troskovi, { idVrstaTroska: 0, nazivVrstaTroska: '', opis: '', iznos: 0, nacin: 1 }])}>
+              ➕ Dodaj Trošak
+            </button>
+          </div>
+          <TroskoviTable
             troskovi={troskovi}
             stavke={stavke}
-            onAddRow={handleAddTrosak}
-            onDeleteRow={handleDeleteTrosak}
-            onUpdateRow={handleUpdateTrosak}
-            costTypes={costTypes}
+            onAddRow={() => setTroskovi([...troskovi, { idVrstaTroska: 0, nazivVrstaTroska: '', opis: '', iznos: 0, nacin: 1 }])}
+            onDeleteRow={(idx) => setTroskovi(troskovi.filter((_, i) => i !== idx))}
+            onUpdateRow={(idx, t) => {
+              const updated = [...troskovi];
+              updated[idx] = t;
+              setTroskovi(updated);
+            }}
+            costTypes={combosData?.costTypes || []}
           />
-        </Box>
-      ),
-    },
-  ];
-
-  return (
-    <Box>
-      <Box display="flex" alignItems="center" mb={3}>
-        <Button startIcon={<ArrowBack />} onClick={handleCancel} sx={{ mr: 2 }}>
-          ← Nazad
-        </Button>
-        <Box>
-          <Typography variant="h4" fontWeight="bold">
-            {docTypeLabel}
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Unesite osnovne podatke za novi dokument
-          </Typography>
-        </Box>
-      </Box>
-
-      {error && (
-        <Alert severity="error" sx={{ mb: 3, whiteSpace: 'pre-line' }} onClose={() => setError(null)}>
-          {error}
-        </Alert>
+        </div>
       )}
-
-      {!!combosError && (
-        <Alert severity="error" sx={{ mb: 3 }}>
-          Greška pri učitavanju podataka:{' '}
-          {String((combosError as Error)?.message || 'Nepoznata greška')}
-        </Alert>
-      )}
-
-      {combosLoading && (
-        <Alert severity="info" sx={{ mb: 3 }}>
-          <Box display="flex" alignItems="center" gap={2}>
-            <CircularProgress size={20} />
-            Učitavam podatke sa servera...
-          </Box>
-        </Alert>
-      )}
-
-      {loadingArticles && (
-        <Alert severity="info" sx={{ mb: 3 }}>
-          <Box display="flex" alignItems="center" gap={2}>
-            <CircularProgress size={20} />
-            Učitavam artikle sa servera...
-          </Box>
-        </Alert>
-      )}
-
-      {/* ✅ TABS KOMPONENTA */}
-      <Paper>
-        <TabsComponent tabs={tabs} defaultTab="zaglavlje" />
-
-        {/* Action Buttons */}
-        <Box display="flex" justifyContent="flex-end" gap={2} sx={{ p: 2, borderTop: '1px solid #eee', backgroundColor: '#f5f5f5' }}>
-          <Button variant="outlined" onClick={handleCancel} disabled={createMutation.isPending}>
-            Odustani
-          </Button>
-          <Button
-            onClick={handleSubmit}
-            variant="contained"
-            color="success"
-            startIcon={
-              createMutation.isPending ? <CircularProgress size={20} /> : <Save />
-            }
-            disabled={createMutation.isPending || combosLoading || loadingArticles}
-          >
-            {createMutation.isPending ? 'Sačuvavam...' : 'Sačuvaj i Nastavi'}
-          </Button>
-        </Box>
-      </Paper>
-    </Box>
+    </div>
   );
 };
 
