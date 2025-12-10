@@ -29,6 +29,8 @@ import type {
   TaxationMethodComboDto,
 } from '../types/api.types';
 import type { TabConfig } from '../components/Document/TabsComponent';
+import type { Stavka } from '../components/Document/StavkeDokumentaTable';
+import type { Trosak } from '../components/Document/TroskoviTable';
 
 const DOCUMENT_TYPES = [
   { code: 'UR', label: 'Ulazna Kalkulacija VP' },
@@ -92,12 +94,14 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
   const organizationalUnits = combosData?.orgUnits;
   const taxationMethods = combosData?.taxationMethods;
   const referents = combosData?.referents;
+  const artikli = combosData?.artikli || [];
+  const costTypes = combosData?.costTypes || [];
 
   // ✅ Stavke state
-  const [stavke, setStavke] = useState<any[]>([]);
+  const [stavke, setStavke] = useState<Stavka[]>([]);
 
   // ✅ Troškovi state
-  const [troskovi, setTroskovi] = useState<any[]>([]);
+  const [troskovi, setTroskovi] = useState<Trosak[]>([]);
 
   const [formData, setFormData] = useState<CreateDocumentDto>({
     documentTypeCode: defaultDocType,
@@ -177,6 +181,51 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
 
   // Get document type label
   const docTypeLabel = DOCUMENT_TYPES.find(t => t.code === defaultDocType)?.label || 'Novi Dokument';
+
+  // ✅ STAVKE HANDLERS
+  const handleAddStavka = () => {
+    const newStavka: Stavka = {
+      idArtikal: 0,
+      nazivArtikal: '',
+      jedinicaMere: '',
+      kolicina: 0,
+      jedinicnaCena: 0,
+      iznos: 0,
+    };
+    setStavke([...stavke, newStavka]);
+  };
+
+  const handleDeleteStavka = (index: number) => {
+    setStavke(stavke.filter((_, i) => i !== index));
+  };
+
+  const handleUpdateStavka = (index: number, stavka: Stavka) => {
+    const updated = [...stavke];
+    updated[index] = stavka;
+    setStavke(updated);
+  };
+
+  // ✅ TROSKOVI HANDLERS
+  const handleAddTrosak = () => {
+    const newTrosak: Trosak = {
+      idVrstaTroska: 0,
+      nazivVrstaTroska: '',
+      opis: '',
+      iznos: 0,
+      nacin: 1, // Po količini
+    };
+    setTroskovi([...troskovi, newTrosak]);
+  };
+
+  const handleDeleteTrosak = (index: number) => {
+    setTroskovi(troskovi.filter((_, i) => i !== index));
+  };
+
+  const handleUpdateTrosak = (index: number, trosak: Trosak) => {
+    const updated = [...troskovi];
+    updated[index] = trosak;
+    setTroskovi(updated);
+  };
 
   // ✅ ZAGLAVLJE SEKCIJA - Tab 1 Content sa pravilnom strukturom po specifikaciji
   const HeaderSection = () => (
@@ -427,7 +476,10 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
         <Box sx={{ p: 3 }}>
           <StavkeDokumentaTable 
             stavke={stavke}
-            setStavke={setStavke}
+            onAddRow={handleAddStavka}
+            onDeleteRow={handleDeleteStavka}
+            onUpdateRow={handleUpdateStavka}
+            artikli={artikli}
           />
         </Box>
       ),
@@ -439,8 +491,11 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
         <Box sx={{ p: 3 }}>
           <TroskoviTable 
             troskovi={troskovi}
-            setTroskovi={setTroskovi}
             stavke={stavke}
+            onAddRow={handleAddTrosak}
+            onDeleteRow={handleDeleteTrosak}
+            onUpdateRow={handleUpdateTrosak}
+            costTypes={costTypes}
           />
         </Box>
       ),
