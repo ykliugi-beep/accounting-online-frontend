@@ -8,6 +8,7 @@ import { useUIStore } from './store';
 
 // Lazy load all page components for better performance
 const DocumentListPage = lazy(() => import('./pages/DocumentListPage'));
+const DocumentSearchPage = lazy(() => import('./pages/DocumentSearchPage'));
 const DocumentCreatePage = lazy(() => import('./pages/DocumentCreatePage'));
 const DocumentDetailPage = lazy(() => import('./pages/DocumentDetailPage'));
 
@@ -37,7 +38,7 @@ const PageLoader: React.FC = () => (
     <Box textAlign="center">
       <CircularProgress size={48} thickness={4} />
       <Box mt={2} color="text.secondary" fontSize="0.875rem">
-        Уčitavanje...
+        Učitavanje...
       </Box>
     </Box>
   </Box>
@@ -70,8 +71,11 @@ const App: React.FC = () => {
                 {/* ✅ Nova home page je pretraga umesto dashboard-a */}
                 <Route path="/" element={<Navigate to="/documents" replace />} />
                 
-                {/* Search / List Documents - OVO JE NOVA HOME STRANICA */}
+                {/* List Documents - Simple list view */}
                 <Route path="/documents" element={<DocumentListPage />} />
+                
+                {/* 🆕 ADVANCED SEARCH - Nova stranica za napredno pretraživanje */}
+                <Route path="/documents/search" element={<DocumentSearchPage />} />
                 
                 {/* Create new document - Generic */}
                 <Route path="/documents/new" element={<DocumentCreatePage />} />
