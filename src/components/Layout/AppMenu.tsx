@@ -17,6 +17,7 @@ import {
   ExpandMore,
   ChevronRight,
   Settings,
+  Search as SearchIcon,
 } from '@mui/icons-material';
 import { Link, useLocation } from 'react-router-dom';
 
@@ -42,6 +43,7 @@ const menuSections: MenuSection[] = [
     title: 'Dokumenti',
     items: [
       { label: 'Ulazni računi', path: '/documents', icon: <Description /> },
+      { label: '🔍 Pretraga dokumenata', path: '/documents/search', icon: <SearchIcon /> },
       { label: 'Nivelacioni dokumenti', path: '/documents/nd', icon: <Description /> },
     ],
   },
