@@ -67,13 +67,13 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
   // TAXATION METHODS (NAČINI OPOREZIVANJA)
   const [taxationMethods, setTaxationMethods] = useState<any[]>([]);
 
-  // FORM DATA
+  // FORM DATA - FIXED: organizationalUnitId je required (number), partnerId/referentId/currencyId/taxationMethodId su optional (number | null)
   const [formData, setFormData] = useState<CreateDocumentDto>({
     documentTypeCode: defaultDocType,
     documentNumber: '',
     date: new Date().toISOString().split('T')[0],
     partnerId: null,
-    organizationalUnitId: null,
+    organizationalUnitId: 0, // FIXED: Changed from null to 0 (required field, type is number)
     referentId: null,
     dueDate: null,
     currencyDate: null,
@@ -200,13 +200,13 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
     }, 500);
   }, []);
 
-  // ISPRAVLJENA PARTNER SELEKCIJA
+  // ISPRAVLJENA PARTNER SELEKCIJA - FIXED: Store as number, not string
   const handlePartnerSelect = (partner: PartnerComboDto) => {
     setPartnerSearchTerm(partner.nazivPartnera || '');
     
     const partnerId = partner.idPartner || partner.id;
     if (partnerId) {
-      setFormData({ ...formData, partnerId: String(partnerId) });
+      setFormData({ ...formData, partnerId: partnerId }); // FIXED: partnerId is number, not String(partnerId)
       console.log(`✅ Partner selected: "${partner.nazivPartnera}" (ID: ${partnerId})`);
     } else {
       console.warn('⚠️ Partner ID is missing!');
@@ -470,10 +470,10 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
                 <label>Magacin: <span style={{color: 'red'}}>*</span></label>
                 <select
                   value={formData.organizationalUnitId || ''}
-                  onChange={(e) => setFormData({ ...formData, organizationalUnitId: e.target.value ? parseInt(e.target.value) : null })}
+                  onChange={(e) => setFormData({ ...formData, organizationalUnitId: e.target.value ? parseInt(e.target.value) : 0 })}
                 >
                   <option value="">-- Izaberite magacin --</option>
-                  {combosData?.organizationalUnits?.map((ou: any) => (
+                  {combosData?.orgUnits?.map((ou: any) => ( // FIXED: Changed organizationalUnits to orgUnits
                     <option key={ou.idOrganizacionaJedinica || ou.id} value={ou.idOrganizacionaJedinica || ou.id}>
                       {ou.naziv || ou.name}
                     </option>
@@ -505,12 +505,12 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
                 <label>Valuta: <span style={{color: 'red'}}>*</span></label>
                 <select 
                   value={formData.currencyId || ''} 
-                  onChange={(e) => setFormData({ ...formData, currencyId: e.target.value || null })}
+                  onChange={(e) => setFormData({ ...formData, currencyId: e.target.value ? parseInt(e.target.value) : null })} // FIXED: parseInt instead of string
                 >
                   <option value="">-- Izaberite valutu --</option>
-                  <option value="RSD">RSD</option>
-                  <option value="EUR">EUR</option>
-                  <option value="USD">USD</option>
+                  <option value="1">RSD</option>
+                  <option value="2">EUR</option>
+                  <option value="3">USD</option>
                 </select>
               </div>
 
