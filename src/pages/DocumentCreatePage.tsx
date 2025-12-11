@@ -57,10 +57,16 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
   const [showPartnerDropdown, setShowPartnerDropdown] = useState(false);
   const [selectedPartner, setSelectedPartner] = useState<PartnerComboDto | null>(null);
   const [partnerSearchLoading, setPartnerSearchLoading] = useState(false);
-  const debounceTimer = useRef<NodeJS.Timeout | null>(null);
+  const partnerDebounceTimer = useRef<NodeJS.Timeout | null>(null);
 
-  // ARTIKLI
+  // ARTIKLI - PURE TYPING-BASED SEARCH (SAME AS PARTNERS)
+  const [allArtikli, setAllArtikli] = useState<ArticleComboDto[]>([]);
   const [artikli, setArtikli] = useState<ArticleComboDto[]>([]);
+  const [artikliSearchTerm, setArtikliSearchTerm] = useState('');
+  const [showArtikliDropdown, setShowArtikliDropdown] = useState(false);
+  const [artikliSearchLoading, setArtikliSearchLoading] = useState(false);
+  const artikliDebounceTimer = useRef<NodeJS.Timeout | null>(null);
+  const [editingArticleIndex, setEditingArticleIndex] = useState<number | null>(null);
 
   // PORESKE STOPE ZA AVANSU
   const [poreskeStope, setPoreskeStope] = useState<any[]>([]);
@@ -91,16 +97,16 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
   const [stavke, setStavke] = useState<Stavka[]>([]);
   const [troskovi, setTroskovi] = useState<Trosak[]>([]);
 
-  // UČITAJ PODATKE (bez dobavljača!)
+  // UČITAJ ARTIKLE NA INICIJALIZACIJI
   useEffect(() => {
     const loadAllData = async () => {
       try {
         setLoadingData(true);
         
-        // Učitaj artikle
+        // Učitaj artikle i spremi u cache
         const articlesData = await api.lookup.getArticles();
-        setArtikli(articlesData);
-        console.log(`✅ Loaded ${articlesData.length} articles`);
+        setAllArtikli(articlesData);
+        console.log(`✅ Loaded ${articlesData.length} articles (cached)`);
         
         // Učitaj poreske stope
         const taksData = await api.lookup.getTaxRates();
@@ -108,7 +114,7 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
         console.log(`✅ Loaded ${taksData.length} tax rates`);
       } catch (err) {
         console.error('❌ Failed to load data:', err);
-        setArtikli([]);
+        setAllArtikli([]);
         setPoreskeStope([]);
       } finally {
         setLoadingData(false);
@@ -117,48 +123,91 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
     loadAllData();
   }, []);
 
-  // PURE TYPING-BASED PARTNER SEARCH (NO CLICK TRIGGER)
+  // PURE TYPING-BASED PARTNER SEARCH
   const handlePartnerSearchChange = useCallback((searchTerm: string) => {
     setPartnerSearchTerm(searchTerm);
-    setShowPartnerDropdown(true);
 
     // Očisti prethodni timer
-    if (debounceTimer.current) {
-      clearTimeout(debounceTimer.current);
+    if (partnerDebounceTimer.current) {
+      clearTimeout(partnerDebounceTimer.current);
     }
 
-    // SCENARIO 1: Prazno (0 karaktera) - ne prikaži ništa
+    // SCENARIO 1: Prazno (0 karaktera)
     if (searchTerm.trim().length === 0) {
-      console.log('🔍 Empty search - hiding dropdown');
+      console.log('🔍 Partner search: empty - hiding dropdown');
       setPartners([]);
       setShowPartnerDropdown(false);
       return;
     }
 
-    // SCENARIO 2: 1 karakter - samo pripremi, ne poziva API
+    // SCENARIO 2: 1 karakter - NEMA API, prikazuj helper
     if (searchTerm.trim().length === 1) {
-      console.log(`🔍 Preparing search for: "${searchTerm}" (waiting for 2+ chars)`);
+      console.log(`🔍 Partner search: 1 char \"${searchTerm}\" - waiting for 2+`);
       setPartners([]);
-      setShowPartnerDropdown(false);
+      setShowPartnerDropdown(true); // ✅ PRIKAŽI dropdown sa porukom!
       return;
     }
 
-    // SCENARIO 3: 2+ karaktera - koristi server-side search sa debounce
-    console.log(`🔍 Preparing server search for: "${searchTerm}" (will call after 500ms debounce)`);
+    // SCENARIO 3: 2+ karaktera - API sa debounce
+    console.log(`🔍 Partner search: preparing for \"${searchTerm}\" (500ms debounce)`);
     setPartnerSearchLoading(true);
-    debounceTimer.current = setTimeout(async () => {
+    setShowPartnerDropdown(true); // ✅ Čim korisnik dostigne 2+ karaktera
+    partnerDebounceTimer.current = setTimeout(async () => {
       try {
-        console.log(`🔍 Server search for: "${searchTerm}"...`);
+        console.log(`🔍 Partner search: API call for \"${searchTerm}\"...`);
         const searchResults = await api.lookup.searchPartners(searchTerm, 50);
         setPartners(searchResults);
-        setShowPartnerDropdown(true);
-        console.log(`✅ Server found ${searchResults.length} partners matching "${searchTerm}"`);
+        console.log(`✅ Partner search: found ${searchResults.length} results for \"${searchTerm}\"`);
       } catch (err) {
-        console.error('❌ Error searching partners:', err);
+        console.error('❌ Partner search error:', err);
         setPartners([]);
-        setShowPartnerDropdown(false);
       } finally {
         setPartnerSearchLoading(false);
+      }
+    }, 500);
+  }, []);
+
+  // PURE TYPING-BASED ARTICLE SEARCH (ISTO KAO PARTNERI)
+  const handleArtikliSearchChange = useCallback((searchTerm: string, rowIndex: number) => {
+    setArtikliSearchTerm(searchTerm);
+    setEditingArticleIndex(rowIndex);
+
+    // Očisti prethodni timer
+    if (artikliDebounceTimer.current) {
+      clearTimeout(artikliDebounceTimer.current);
+    }
+
+    // SCENARIO 1: Prazno (0 karaktera)
+    if (searchTerm.trim().length === 0) {
+      console.log('🔍 Article search: empty - hiding dropdown');
+      setArtikli([]);
+      setShowArtikliDropdown(false);
+      return;
+    }
+
+    // SCENARIO 2: 1 karakter - NEMA API
+    if (searchTerm.trim().length === 1) {
+      console.log(`🔍 Article search: 1 char \"${searchTerm}\" - waiting for 2+`);
+      setArtikli([]);
+      setShowArtikliDropdown(true); // ✅ PRIKAŽI dropdown sa porukom!
+      return;
+    }
+
+    // SCENARIO 3: 2+ karaktera - API sa debounce
+    console.log(`🔍 Article search: preparing for \"${searchTerm}\" (500ms debounce)`);
+    setArtikliSearchLoading(true);
+    setShowArtikliDropdown(true);
+    artikliDebounceTimer.current = setTimeout(async () => {
+      try {
+        console.log(`🔍 Article search: API call for \"${searchTerm}\"...`);
+        const searchResults = await api.lookup.searchArticles(searchTerm, 50);
+        setArtikli(searchResults);
+        console.log(`✅ Article search: found ${searchResults.length} results for \"${searchTerm}\"`);
+      } catch (err) {
+        console.error('❌ Article search error:', err);
+        setArtikli([]);
+      } finally {
+        setArtikliSearchLoading(false);
       }
     }, 500);
   }, []);
@@ -168,7 +217,22 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
     setPartnerSearchTerm(partner.naziv || partner.name || '');
     setFormData({ ...formData, partnerId: partner.idPartner || partner.id });
     setShowPartnerDropdown(false);
-    console.log(`✅ Selected partner: "${partner.naziv || partner.name}" (ID: ${partner.idPartner || partner.id})`);
+    console.log(`✅ Partner selected: \"${partner.naziv || partner.name}\"`);
+  };
+
+  const handleArtikliSelect = (article: ArticleComboDto, rowIndex: number) => {
+    const updated = [...stavke];
+    updated[rowIndex] = {
+      ...updated[rowIndex],
+      idArtikal: article.idArticle || article.id,
+      nazivArtikal: article.naziv || article.name || '',
+      jedinicaMere: article.jedinicaMere || article.unitOfMeasure || 'kom',
+    };
+    setStavke(updated);
+    setShowArtikliDropdown(false);
+    setArtikliSearchTerm('');
+    setEditingArticleIndex(null);
+    console.log(`✅ Article selected: \"${article.naziv || article.name}\" for row ${rowIndex}`);
   };
 
   // KALKULACIJA PDV-a
@@ -299,11 +363,11 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
           </div>
 
           <div className={styles.formSection}>
-            <div className={styles.formSectionTitle}>🏢 DOBAVLJAČ I MAGACIN</div>
+            <div className={styles.formSectionTitle}>🏢 DOBABLJAČ I MAGACIN</div>
             <div className={styles.formRow}>
-              {/* DOBAVLJAČ - PURE TYPING SEARCH (NO CLICK) */}
+              {/* DOBABLJAČ - PURE TYPING SEARCH */}
               <div className={styles.formGroup}>
-                <label>Dobavljač (piši 2+ karaktera za pretragu):</label>
+                <label>Dobabljač (piši 2+ karaktera za pretragu):</label>
                 <div className={styles.autocompleteContainer}>
                   <div className={styles.inputWrapper} style={{ position: 'relative' }}>
                     <input
@@ -312,7 +376,7 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
                       value={partnerSearchTerm}
                       onChange={(e) => handlePartnerSearchChange(e.target.value)}
                       onBlur={() => setTimeout(() => setShowPartnerDropdown(false), 200)}
-                      placeholder="Piši dobavljača (min. 2 karaktera)..."
+                      placeholder="Piši dobabljača (min. 2 karaktera)..."
                       autoComplete="off"
                     />
                     {partnerSearchLoading && (
@@ -499,10 +563,142 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
       {activeTab === 'stavke' && (
         <div className={styles.tabContent + ' ' + styles.active}>
           <div className={styles.btnGroup}>
-            <button className={styles.btnSuccess} onClick={() => setStavke([...stavke, { idArtikal: 0, nazivArtikal: '', jedinicaMere: '', kolicina: 0, jedinicnaCena: 0, iznos: 0 }])}>
+            <button 
+              className={styles.btnSuccess} 
+              onClick={() => {
+                const newStavka = { idArtikal: 0, nazivArtikal: '', jedinicaMere: '', kolicina: 0, jedinicnaCena: 0, iznos: 0 };
+                setStavke([...stavke, newStavka]);
+                setEditingArticleIndex(stavke.length); // ✅ Odmah je editabilna!
+              }}
+            >
               ➕ Dodaj Stavku
             </button>
           </div>
+
+          {/* STAVKE TABELA SA ARTICLE SEARCH */}
+          {stavke.length > 0 && (
+            <div className={styles.formSection}>
+              <table>
+                <thead>
+                  <tr>
+                    <th>R.B.</th>
+                    <th>Artikal</th>
+                    <th>Jed.Mere</th>
+                    <th>Količina</th>
+                    <th>Cena</th>
+                    <th>Iznos</th>
+                    <th>Akcije</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {stavke.map((stavka, idx) => (
+                    <tr key={idx}>
+                      <td>{idx + 1}</td>
+                      <td style={{ position: 'relative', minWidth: '200px' }}>
+                        {editingArticleIndex === idx ? (
+                          <div>
+                            <input
+                              type="text"
+                              value={artikliSearchTerm}
+                              onChange={(e) => handleArtikliSearchChange(e.target.value, idx)}
+                              placeholder="Piši (min 2 znaka)..."
+                              autoFocus
+                              autoComplete="off"
+                              style={{ width: '100%' }}
+                            />
+                            {showArtikliDropdown && editingArticleIndex === idx && (
+                              <div className={`${styles.autocompleteDropdown} ${styles.show}`} style={{ position: 'absolute', top: '100%', width: '100%', zIndex: 1000 }}>
+                                {artikli.length > 0 && (
+                                  artikli.slice(0, 10).map((art) => (
+                                    <div
+                                      key={art.idArticle || art.id}
+                                      className={styles.autocompleteItem}
+                                      onClick={() => handleArtikliSelect(art, idx)}
+                                    >
+                                      {art.naziv || art.name}
+                                    </div>
+                                  ))
+                                )}
+                                {artikliSearchTerm.trim().length === 1 && (
+                                  <div className={styles.autocompleteItem} style={{ color: '#999' }}>
+                                    Unesite još 1 karakter...
+                                  </div>
+                                )}
+                                {artikliSearchTerm.trim().length >= 2 && !artikliSearchLoading && artikli.length === 0 && (
+                                  <div className={styles.autocompleteItem} style={{ color: '#999' }}>
+                                    Nema rezultata
+                                  </div>
+                                )}
+                                {artikliSearchLoading && (
+                                  <div className={styles.autocompleteItem} style={{ color: '#999' }}>
+                                    Pretražujem...
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div
+                            onClick={() => {
+                              setEditingArticleIndex(idx);
+                              setArtikliSearchTerm('');
+                            }}
+                            style={{ cursor: 'pointer', padding: '8px', backgroundColor: '#f5f5f5' }}
+                          >
+                            {stavka.nazivArtikal || '🔍 Klikni za izbor'}
+                          </div>
+                        )}
+                      </td>
+                      <td>{stavka.jedinicaMere}</td>
+                      <td>
+                        <input
+                          type="number"
+                          value={stavka.kolicina}
+                          onChange={(e) => {
+                            const updated = [...stavke];
+                            updated[idx].kolicina = parseFloat(e.target.value) || 0;
+                            updated[idx].iznos = updated[idx].kolicina * updated[idx].jedinicnaCena;
+                            setStavke(updated);
+                          }}
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="number"
+                          value={stavka.jedinicnaCena}
+                          onChange={(e) => {
+                            const updated = [...stavke];
+                            updated[idx].jedinicnaCena = parseFloat(e.target.value) || 0;
+                            updated[idx].iznos = updated[idx].kolicina * updated[idx].jedinicnaCena;
+                            setStavke(updated);
+                          }}
+                        />
+                      </td>
+                      <td>{stavka.iznos.toFixed(2)}</td>
+                      <td>
+                        <button
+                          className={styles.btnDanger}
+                          onClick={() => setStavke(stavke.filter((_, i) => i !== idx))}
+                          title="Obriši stavku"
+                        >
+                          🗑️
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {stavke.length === 0 && (
+            <div className={styles.formSection}>
+              <p style={{ color: '#999', textAlign: 'center', padding: '20px' }}>
+                Nema dodanih stavki. Klikni \"Dodaj Stavku\" da počneš.
+              </p>
+            </div>
+          )}
+
           <StavkeDokumentaTable
             stavke={stavke}
             onAddRow={() => setStavke([...stavke, { idArtikal: 0, nazivArtikal: '', jedinicaMere: '', kolicina: 0, jedinicnaCena: 0, iznos: 0 }])}
@@ -512,7 +708,7 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
               updated[idx] = s;
               setStavke(updated);
             }}
-            artikli={artikli}
+            artikli={allArtikli}
           />
         </div>
       )}
