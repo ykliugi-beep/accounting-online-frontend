@@ -8,8 +8,6 @@ import TroskoviTable from '../components/Document/TroskoviTable';
 import type {
   CreateDocumentDto,
   PartnerComboDto,
-  OrganizationalUnitComboDto,
-  ReferentComboDto,
   ArticleComboDto,
 } from '../types/api.types';
 import type { Stavka } from '../components/Document/StavkeDokumentaTable';
@@ -46,20 +44,18 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
   const [activeTab, setActiveTab] = useState('zaglavlje');
   const [error, setError] = useState<string | string[] | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [loadingData, setLoadingData] = useState(false);
 
   const defaultDocType = docType || 'UR';
-  const { data: combosData, isLoading: combosLoading } = useAllCombos(defaultDocType);
+  const { data: combosData } = useAllCombos(defaultDocType);
 
   // PARTNERS (DOBAVLJACI) - PURE TYPING-BASED SEARCH
   const [partners, setPartners] = useState<PartnerComboDto[]>([]);
   const [partnerSearchTerm, setPartnerSearchTerm] = useState('');
   const [showPartnerDropdown, setShowPartnerDropdown] = useState(false);
-  const [selectedPartner, setSelectedPartner] = useState<PartnerComboDto | null>(null);
   const [partnerSearchLoading, setPartnerSearchLoading] = useState(false);
   const partnerDebounceTimer = useRef<NodeJS.Timeout | null>(null);
 
-  // ARTIKLI - PURE TYPING-BASED SEARCH (SAME AS PARTNERS)
+  // ARTIKLI - PURE TYPING-BASED SEARCH (ISTO KAO PARTNERI)
   const [allArtikli, setAllArtikli] = useState<ArticleComboDto[]>([]);
   const [artikli, setArtikli] = useState<ArticleComboDto[]>([]);
   const [artikliSearchTerm, setArtikliSearchTerm] = useState('');
@@ -68,30 +64,24 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
   const artikliDebounceTimer = useRef<NodeJS.Timeout | null>(null);
   const [editingArticleIndex, setEditingArticleIndex] = useState<number | null>(null);
 
-  // PORESKE STOPE ZA AVANSU
-  const [poreskeStope, setPoreskeStope] = useState<any[]>([]);
-  const [avansPDV, setAvansPDV] = useState<AvansPDVRow[]>([
-    { poreskaStopaId: 0, poreskaStopaVal: 0, osnov: 0, pdvIznos: 0, ukupno: 0 }
-  ]);
-
   // TAXATION METHODS (NAČINI OPOREZIVANJA)
   const [taxationMethods, setTaxationMethods] = useState<any[]>([]);
 
-  // FORM DATA - ✅ ISPRAVKA TIPOVA
+  // FORM DATA
   const [formData, setFormData] = useState<CreateDocumentDto>({
     documentTypeCode: defaultDocType,
     documentNumber: '',
     date: new Date().toISOString().split('T')[0],
     partnerId: null,
-    organizationalUnitId: null, // ✅ ISPRAVLJENO: 0 → null
+    organizationalUnitId: null,
     referentId: null,
     dueDate: null,
     currencyDate: null,
     partnerDocumentNumber: null,
     partnerDocumentDate: null,
-    taxationMethodId: null, // ✅ Biće number nakon odabira
+    taxationMethodId: null,
     statusId: 1,
-    currencyId: null, // ✅ ISPRAVLJENO: null → biće number nakon odabira
+    currencyId: null,
     exchangeRate: 1.0,
     notes: null,
   });
@@ -99,13 +89,14 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
   // STAVKE I TROŠKOVI
   const [stavke, setStavke] = useState<Stavka[]>([]);
   const [troskovi, setTroskovi] = useState<Trosak[]>([]);
+  const [avansPDV, setAvansPDV] = useState<AvansPDVRow[]>([
+    { poreskaStopaId: 0, poreskaStopaVal: 0, osnov: 0, pdvIznos: 0, ukupno: 0 }
+  ]);
 
   // UČITAJ ARTIKLE I TAXATION METHODS NA INICIJALIZACIJI
   useEffect(() => {
     const loadAllData = async () => {
       try {
-        setLoadingData(true);
-        
         // Učitaj artikle i spremi u cache
         const articlesData = await api.lookup.getArticles();
         setAllArtikli(articlesData);
@@ -113,20 +104,16 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
         
         // Učitaj poreske stope
         const taksData = await api.lookup.getTaxRates();
-        setPoreskeStope(taksData);
         console.log(`✅ Loaded ${taksData.length} tax rates`);
 
-        // ✅ NOVO: Učitaj načine oporezivanja
+        // Učitaj načine oporezivanja
         const taxMethodsData = await api.lookup.getTaxationMethods();
         setTaxationMethods(taxMethodsData);
         console.log(`✅ Loaded ${taxMethodsData.length} taxation methods`);
       } catch (err) {
         console.error('❌ Failed to load data:', err);
         setAllArtikli([]);
-        setPoreskeStope([]);
         setTaxationMethods([]);
-      } finally {
-        setLoadingData(false);
       }
     };
     loadAllData();
@@ -136,12 +123,10 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
   const handlePartnerSearchChange = useCallback((searchTerm: string) => {
     setPartnerSearchTerm(searchTerm);
 
-    // Očisti prethodni timer
     if (partnerDebounceTimer.current) {
       clearTimeout(partnerDebounceTimer.current);
     }
 
-    // SCENARIO 1: Prazno (0 karaktera)
     if (searchTerm.trim().length === 0) {
       console.log('🔍 Partner search: empty - hiding dropdown');
       setPartners([]);
@@ -149,18 +134,16 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
       return;
     }
 
-    // SCENARIO 2: 1 karakter - NEMA API, prikazuj helper
     if (searchTerm.trim().length === 1) {
       console.log(`🔍 Partner search: 1 char "${searchTerm}" - waiting for 2+`);
       setPartners([]);
-      setShowPartnerDropdown(true); // ✅ PRIKAŽI dropdown sa porukom!
+      setShowPartnerDropdown(true);
       return;
     }
 
-    // SCENARIO 3: 2+ karaktera - API sa debounce
     console.log(`🔍 Partner search: preparing for "${searchTerm}" (500ms debounce)`);
     setPartnerSearchLoading(true);
-    setShowPartnerDropdown(true); // ✅ Čim korisnik dostigne 2+ karaktera
+    setShowPartnerDropdown(true);
     partnerDebounceTimer.current = setTimeout(async () => {
       try {
         console.log(`🔍 Partner search: API call for "${searchTerm}"...`);
@@ -176,17 +159,15 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
     }, 500);
   }, []);
 
-  // PURE TYPING-BASED ARTICLE SEARCH (ISTO KAO PARTNERI)
+  // PURE TYPING-BASED ARTICLE SEARCH
   const handleArtikliSearchChange = useCallback((searchTerm: string, rowIndex: number) => {
     setArtikliSearchTerm(searchTerm);
     setEditingArticleIndex(rowIndex);
 
-    // Očisti prethodni timer
     if (artikliDebounceTimer.current) {
       clearTimeout(artikliDebounceTimer.current);
     }
 
-    // SCENARIO 1: Prazno (0 karaktera)
     if (searchTerm.trim().length === 0) {
       console.log('🔍 Article search: empty - hiding dropdown');
       setArtikli([]);
@@ -194,15 +175,13 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
       return;
     }
 
-    // SCENARIO 2: 1 karakter - NEMA API
     if (searchTerm.trim().length === 1) {
       console.log(`🔍 Article search: 1 char "${searchTerm}" - waiting for 2+`);
       setArtikli([]);
-      setShowArtikliDropdown(true); // ✅ PRIKAŽI dropdown sa porukom!
+      setShowArtikliDropdown(true);
       return;
     }
 
-    // SCENARIO 3: 2+ karaktera - API sa debounce
     console.log(`🔍 Article search: preparing for "${searchTerm}" (500ms debounce)`);
     setArtikliSearchLoading(true);
     setShowArtikliDropdown(true);
@@ -221,16 +200,14 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
     }, 500);
   }, []);
 
-  // ✅ ISPRAVLJENA PARTNER SELEKCIJA
+  // ISPRAVLJENA PARTNER SELEKCIJA
   const handlePartnerSelect = (partner: PartnerComboDto) => {
-    setSelectedPartner(partner);
-    setPartnerSearchTerm(partner.naziv || partner.name || '');
+    setPartnerSearchTerm(partner.nazivPartnera || '');
     
-    // ✅ ISPRAVLJENO: Sigurna konverzija ID-a
     const partnerId = partner.idPartner || partner.id;
     if (partnerId) {
-      setFormData({ ...formData, partnerId });
-      console.log(`✅ Partner selected: "${partner.naziv || partner.name}" (ID: ${partnerId})`);
+      setFormData({ ...formData, partnerId: String(partnerId) });
+      console.log(`✅ Partner selected: "${partner.nazivPartnera}" (ID: ${partnerId})`);
     } else {
       console.warn('⚠️ Partner ID is missing!');
     }
@@ -242,15 +219,15 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
     const updated = [...stavke];
     updated[rowIndex] = {
       ...updated[rowIndex],
-      idArtikal: article.idArticle || article.id,
-      nazivArtikal: article.naziv || article.name || '',
-      jedinicaMere: article.jedinicaMere || article.unitOfMeasure || 'kom',
+      idArtikal: article.idArtikal,
+      nazivArtikal: article.nazivArtikla || '',
+      jedinicaMere: article.jedinicaMere || 'kom',
     };
     setStavke(updated);
     setShowArtikliDropdown(false);
     setArtikliSearchTerm('');
     setEditingArticleIndex(null);
-    console.log(`✅ Article selected: "${article.naziv || article.name}" for row ${rowIndex}`);
+    console.log(`✅ Article selected: "${article.nazivArtikla}" for row ${rowIndex}`);
   };
 
   // KALKULACIJA PDV-a
@@ -287,7 +264,6 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
     onError: (err: any) => {
       console.error('❌ Document creation error:', err);
       
-      // ✅ DETALJNIJE PRIKAZIVANJE GREŠAKA
       if (err?.response?.data?.errors) {
         const validationErrors = Object.entries(err.response.data.errors)
           .map(([field, msgs]: [string, any]) => `${field}: ${Array.isArray(msgs) ? msgs.join(', ') : msgs}`)
@@ -299,7 +275,6 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
     },
   });
 
-  // ✅ ISPRAVLJENA VALIDACIJA PRE SUBMIT-A
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -331,7 +306,6 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
         </button>
       </div>
 
-      {/* ✅ POBOLJŠANO PRIKAZIVANJE GREŠAKA */}
       {error && (
         <div className={`${styles.alert} ${styles.alertDanger}`}>
           <strong>Greške pri validaciji:</strong>
@@ -402,7 +376,7 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
               </div>
               <div className={styles.formGroup}>
                 <label>Status:</label>
-                <select value="Otvorena" onChange={(e) => {}}>
+                <select defaultValue="Otvorena">
                   <option>Otvorena</option>
                   <option>Pauzirana</option>
                   <option>Završena</option>
@@ -410,7 +384,6 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
               </div>
             </div>
 
-            {/* ✅ DODATO: Dodatna datumska polja */}
             <div className={styles.formRow}>
               <div className={styles.formGroup}>
                 <label>Datum otpremnice:</label>
@@ -434,7 +407,6 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
           <div className={styles.formSection}>
             <div className={styles.formSectionTitle}>🏢 DOBAVLJAČ I MAGACIN</div>
             <div className={styles.formRow}>
-              {/* DOBAVLJAČ - PURE TYPING SEARCH */}
               <div className={styles.formGroup}>
                 <label>Dobavljač (piši 2+ karaktera za pretragu):</label>
                 <div className={styles.autocompleteContainer}>
@@ -460,7 +432,7 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
                           className={styles.autocompleteItem}
                           onClick={() => handlePartnerSelect(partner)}
                         >
-                          {partner.naziv || partner.name}
+                          {partner.nazivPartnera || partner.name}
                         </div>
                       ))}
                       {partners.length > 50 && (
@@ -494,7 +466,6 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
                 </div>
               </div>
 
-              {/* MAGACIN - ✅ REQUIRED */}
               <div className={styles.formGroup}>
                 <label>Magacin: <span style={{color: 'red'}}>*</span></label>
                 <select
@@ -502,7 +473,7 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
                   onChange={(e) => setFormData({ ...formData, organizationalUnitId: e.target.value ? parseInt(e.target.value) : null })}
                 >
                   <option value="">-- Izaberite magacin --</option>
-                  {combosData?.orgUnits?.map((ou) => (
+                  {combosData?.organizationalUnits?.map((ou: any) => (
                     <option key={ou.idOrganizacionaJedinica || ou.id} value={ou.idOrganizacionaJedinica || ou.id}>
                       {ou.naziv || ou.name}
                     </option>
@@ -510,7 +481,6 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
                 </select>
               </div>
 
-              {/* REFERENT */}
               <div className={styles.formGroup}>
                 <label>Referent:</label>
                 <select
@@ -518,7 +488,7 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
                   onChange={(e) => setFormData({ ...formData, referentId: e.target.value ? parseInt(e.target.value) : null })}
                 >
                   <option value="">-- Izaberite referenta --</option>
-                  {combosData?.referents?.map((ref) => (
+                  {combosData?.referents?.map((ref: any) => (
                     <option key={ref.idRadnik || ref.id} value={ref.idRadnik || ref.id}>
                       {ref.imePrezime || ref.fullName}
                     </option>
@@ -531,23 +501,19 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
           <div className={styles.formSection}>
             <div className={styles.formSectionTitle}>💰 FINANSIJSKI PARAMETRI</div>
             <div className={styles.formRow}>
-              {/* VALUTA - ✅ REQUIRED + PROPER MAPPING */}
               <div className={styles.formGroup}>
                 <label>Valuta: <span style={{color: 'red'}}>*</span></label>
                 <select 
                   value={formData.currencyId || ''} 
-                  onChange={(e) => setFormData({ ...formData, currencyId: e.target.value ? parseInt(e.target.value) : null })}
+                  onChange={(e) => setFormData({ ...formData, currencyId: e.target.value || null })}
                 >
                   <option value="">-- Izaberite valutu --</option>
-                  {combosData?.currencies?.map((curr: any) => (
-                    <option key={curr.idValuta || curr.id} value={curr.idValuta || curr.id}>
-                      {curr.kodValute || curr.code || curr.name}
-                    </option>
-                  ))}
+                  <option value="RSD">RSD</option>
+                  <option value="EUR">EUR</option>
+                  <option value="USD">USD</option>
                 </select>
               </div>
 
-              {/* OPOREZIVANJE - ✅ REQUIRED + NUMBER TYPE + PROPER MAPPING */}
               <div className={styles.formGroup}>
                 <label>Oporezivanje: <span style={{color: 'red'}}>*</span></label>
                 <select 
@@ -605,7 +571,6 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
             </div>
           </div>
 
-          {/* PORESKE TARIFE (AVANSI) */}
           <div className={styles.formSection}>
             <div className={styles.formSectionTitle}>📊 PORESKE TARIFE (AVANSI)</div>
             <table>
@@ -641,14 +606,14 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
                       <input
                         type="number"
                         value={row.pdvIznos.toFixed(2)}
-                        disabled
+                        readOnly
                       />
                     </td>
                     <td>
                       <input
                         type="number"
                         value={row.ukupno.toFixed(2)}
-                        disabled
+                        readOnly
                       />
                     </td>
                   </tr>
@@ -668,14 +633,13 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
               onClick={() => {
                 const newStavka = { idArtikal: 0, nazivArtikal: '', jedinicaMere: '', kolicina: 0, jedinicnaCena: 0, iznos: 0 };
                 setStavke([...stavke, newStavka]);
-                setEditingArticleIndex(stavke.length); // ✅ Odmah je editabilna!
+                setEditingArticleIndex(stavke.length);
               }}
             >
               ➕ Dodaj Stavku
             </button>
           </div>
 
-          {/* STAVKE TABELA SA ARTICLE SEARCH */}
           {stavke.length > 0 && (
             <div className={styles.formSection}>
               <table>
@@ -711,11 +675,11 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
                                 {artikli.length > 0 && (
                                   artikli.slice(0, 10).map((art) => (
                                     <div
-                                      key={art.idArticle || art.id}
+                                      key={art.idArtikal || art.id}
                                       className={styles.autocompleteItem}
                                       onClick={() => handleArtikliSelect(art, idx)}
                                     >
-                                      {art.naziv || art.name}
+                                      {art.nazivArtikla || art.name}
                                     </div>
                                   ))
                                 )}
