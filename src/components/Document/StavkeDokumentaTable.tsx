@@ -34,7 +34,7 @@ export const StavkeDokumentaTable: React.FC<Props> = ({
     setEditingIndex(index);
   };
 
-  const handleSaveRow = (index: number) => {
+  const handleSaveRow = () => {
     setEditingIndex(null);
   };
 
@@ -162,7 +162,7 @@ export const StavkeDokumentaTable: React.FC<Props> = ({
                         <>
                           <button
                             className={styles.btnSave}
-                            onClick={() => handleSaveRow(index)}
+                            onClick={() => handleSaveRow()}
                             title="Sačuvaj"
                           >
                             ✓
