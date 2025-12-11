@@ -127,9 +127,9 @@ export const DocumentSearchPage: React.FC = () => {
                 }
               >
                 <option value="">-- Svi partneri --</option>
-                {combosData?.partners?.map((partner: any) => (
+                {combosData?.organizationalUnits?.map((partner: any) => (
                   <option key={partner.idPartner || partner.id} value={partner.idPartner || partner.id}>
-                    {partner.naziv || partner.name}
+                    {partner.nazivPartnera || partner.name}
                   </option>
                 ))}
               </select>
@@ -252,7 +252,7 @@ export const DocumentSearchPage: React.FC = () => {
           </table>
 
           {/* PAGINACIJA */}
-          {searchResults.totalPages > 1 && (
+          {(searchResults.totalPages ?? 0) > 1 && (
             <div className={styles.btnGroup} style={{ marginTop: '20px' }}>
               <button
                 className={styles.btnPrimary}
@@ -262,14 +262,14 @@ export const DocumentSearchPage: React.FC = () => {
                 ← Prethodna
               </button>
               <span style={{ padding: '10px', color: '#666' }}>
-                Stranica {searchResults.pageNumber} od {searchResults.totalPages}
+                Stranica {searchResults.pageNumber} od {searchResults.totalPages ?? 1}
               </span>
               <button
                 className={styles.btnPrimary}
                 onClick={() => handlePageChange(searchResults.pageNumber + 1)}
                 disabled={!searchResults.hasNextPage}
               >
-                Sledeća →
+                Sleđeća →
               </button>
             </div>
           )}
