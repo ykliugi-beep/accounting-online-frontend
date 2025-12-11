@@ -3,7 +3,6 @@ import {
   Box,
   Tabs,
   Tab,
-  Paper,
 } from '@mui/material';
 
 export interface TabConfig {

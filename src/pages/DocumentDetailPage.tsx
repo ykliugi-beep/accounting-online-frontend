@@ -8,17 +8,12 @@ import {
   Typography,
   Button,
   CircularProgress,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
-  Divider,
 } from '@mui/material';
 import { ArrowBack as ArrowBackIcon } from '@mui/icons-material';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api';
 import { useDocumentStore } from '../store';
+import type { DocumentDto } from '../types/api.types';
 import StavkeDokumentaTable, { Stavka } from '../components/Document/StavkeDokumentaTable';
 import TroskoviTable, { Trosak } from '../components/Document/TroskoviTable';
 import { useCostTypes } from '../hooks/useCombos';
