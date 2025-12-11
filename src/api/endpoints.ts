@@ -15,6 +15,8 @@ import type {
   UpdateDocumentDto,
   DocumentDto,
   PagedResponse,
+  DocumentSearchDto,
+  DocumentSearchResultDto,
   // Line Items
   CreateDocumentLineItemDto,
   PatchDocumentLineItemDto,
@@ -173,6 +175,15 @@ export const documentApi = {
   }): Promise<PagedResponse<DocumentDto>> => {
     const url = buildUrl('/documents', params);
     const response = await apiClient.get<PagedResponse<DocumentDto>>(url);
+    return response.data;
+  },
+
+  /**
+   * 🆕 POST /api/v1/documents/search
+   * Advanced document search with filters and pagination
+   */
+  search: async (filters: DocumentSearchDto): Promise<DocumentSearchResultDto> => {
+    const response = await apiClient.post<DocumentSearchResultDto>('/documents/search', filters);
     return response.data;
   },
 

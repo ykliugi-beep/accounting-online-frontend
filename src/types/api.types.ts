@@ -177,6 +177,33 @@ export interface DocumentDto {
 }
 
 // ============================================================================
+// DOCUMENT SEARCH DTOs
+// ============================================================================
+
+export interface DocumentSearchDto {
+  documentNumber?: string;
+  partnerId?: number | null;
+  dateFrom?: string | null;
+  dateTo?: string | null;
+  statusId?: number | null;
+  documentTypeCode?: string;
+  pageNumber: number;
+  pageSize: number;
+  sortBy?: string;
+  sortDirection?: 'asc' | 'desc';
+}
+
+export interface DocumentSearchResultDto {
+  documents: DocumentDto[];
+  totalCount: number;
+  pageNumber: number;
+  pageSize: number;
+  totalPages?: number;
+  hasPreviousPage?: boolean;
+  hasNextPage?: boolean;
+}
+
+// ============================================================================
 // DOCUMENT LINE ITEM DTOs
 // ============================================================================
 
