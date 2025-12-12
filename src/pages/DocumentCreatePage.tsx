@@ -35,7 +35,8 @@ interface DocumentCreatePageProps {
 
 function toISODateTime(dateStr: string | null): string | null {
   if (!dateStr) return null;
-  if (dateStr.includes('T')) return dateStr;
+  if (dateStr.includes('T')) return dateStr;  // Already ISO format
+  // Convert YYYY-MM-DD to YYYY-MM-DDTHH:mm:ss
   return `${dateStr}T00:00:00`;
 }
 
@@ -271,14 +272,23 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
 
   const createMutation = useMutation({
     mutationFn: (data: CreateDocumentDto) => {
+      // FIXED: Ensure all date fields are properly formatted to ISO format
       const payload: CreateDocumentDto = {
         ...data,
-        date: toISODateTime(data.date) || data.date,
+        date: toISODateTime(data.date) || '1900-01-01T00:00:00',  // FIXED: Provide fallback if date is missing
         dueDate: toISODateTime(data.dueDate),
         currencyDate: toISODateTime(data.currencyDate),
         partnerDocumentDate: toISODateTime(data.partnerDocumentDate),
       };
+      
+      // DEBUG: Log all dates to verify they're correct
+      console.log('📋 Date fields before sending:');
+      console.log(`  documentDate (date): "${data.date}" → "${payload.date}"`);
+      console.log(`  dueDate: "${data.dueDate}" → "${payload.dueDate}"`);
+      console.log(`  currencyDate: "${data.currencyDate}" → "${payload.currencyDate}"`);
+      console.log(`  partnerDocumentDate: "${data.partnerDocumentDate}" → "${payload.partnerDocumentDate}"`);
       console.log('📤 Sending document payload:', payload);
+      
       return api.document.create(payload);
     },
     onSuccess: (newDocument) => {
@@ -316,6 +326,8 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
       return;
     }
 
+    // DEBUG: Log formData before submit
+    console.log('📋 FormData before submission:', formData);
     createMutation.mutate(formData);
   };
 
@@ -395,7 +407,10 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
                 <input
                   type="date"
                   value={formData.date}
-                  onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                  onChange={(e) => {
+                    console.log(`📅 Document date changed: "${e.target.value}"`);
+                    setFormData({ ...formData, date: e.target.value });
+                  }}
                 />
               </div>
               <div className={styles.formGroup}>
