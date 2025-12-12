@@ -117,11 +117,11 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
             setTaxationMethods(taxMethodsData);
             console.log(`✅ Loaded ${taxMethodsData.length} taxation methods`);
             
-            // Log method IDs and names for debugging
+            // Log method IDs and descriptions for debugging
             taxMethodsData.forEach((m: any) => {
               const id = m.idNacinOporezivanja || m.id;
-              const name = m.naziv || m.name;
-              console.log(`  - Method ID: ${id}, Name: "${name}"`);
+              const description = m.opis || m.description;  // FIXED: Use 'opis' not 'naziv'
+              console.log(`  - Method ID: ${id}, Description: "${description}"`);
             });
           } else {
             console.warn('⚠️ Tax methods response is not an array:', taxMethodsData);
@@ -556,10 +556,10 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
                     <option value="">-- Izaberite oporezivanje --</option>
                     {taxationMethods && Array.isArray(taxationMethods) && taxationMethods.map((method: any) => {
                       const methodId = method.idNacinOporezivanja || method.id;
-                      const methodName = method.naziv || method.name;
+                      const methodDescription = method.opis || method.description;  // FIXED: Use 'opis' from API
                       return (
                         <option key={methodId} value={methodId}>
-                          {methodName}
+                          {methodDescription}
                         </option>
                       );
                     })}
