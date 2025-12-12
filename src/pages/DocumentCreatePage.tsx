@@ -34,10 +34,19 @@ interface DocumentCreatePageProps {
 }
 
 function toISODateTime(dateStr: string | null): string | null {
+  // FIXED: Properly convert date string to ISO 8601 format
   if (!dateStr) return null;
-  if (dateStr.includes('T')) return dateStr;  // Already ISO format
-  // Convert YYYY-MM-DD to YYYY-MM-DDTHH:mm:ss
-  return `${dateStr}T00:00:00`;
+  
+  // If already in ISO format, return as-is
+  if (dateStr.includes('T')) return dateStr;
+  
+  // Convert YYYY-MM-DD to ISO 8601 format
+  // Using Date constructor with explicit UTC to avoid timezone issues
+  const date = new Date(dateStr + 'T00:00:00.000Z');
+  
+  // Return ISO string which Axios will serialize properly
+  // Backend will receive: "2025-01-01T00:00:00.000Z"
+  return date.toISOString();
 }
 
 export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType }) => {
@@ -112,16 +121,26 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
         setTaxMethodsLoading(true);
         try {
           const taxMethodsData = await api.lookup.getTaxationMethods();
-          console.log('🔍 Tax Methods Response:', taxMethodsData);
+          console.log('📦 Tax Methods Response from API:', taxMethodsData);
           
           if (Array.isArray(taxMethodsData)) {
             setTaxationMethods(taxMethodsData);
             console.log(`✅ Loaded ${taxMethodsData.length} taxation methods`);
             
+            // Log method structure for debugging
+            if (taxMethodsData.length > 0) {
+              const firstMethod = taxMethodsData[0];
+              console.log('🔍 First taxation method structure:', {
+                keys: Object.keys(firstMethod),
+                idNacinOporezivanja: firstMethod.idNacinOporezivanja,
+                opis: firstMethod.opis,
+              });
+            }
+            
             // Log method IDs and descriptions for debugging
             taxMethodsData.forEach((m: any) => {
-              const id = m.idNacinOporezivanja || m.id;
-              const description = m.opis || m.description;  // FIXED: Use 'opis' not 'naziv'
+              const id = m.idNacinOporezivanja;  // FIXED: Use ONLY correct field name
+              const description = m.opis;        // FIXED: Use ONLY correct field name
               console.log(`  - Method ID: ${id}, Description: "${description}"`);
             });
           } else {
@@ -272,10 +291,10 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
 
   const createMutation = useMutation({
     mutationFn: (data: CreateDocumentDto) => {
-      // FIXED: Ensure all date fields are properly formatted to ISO format
+      // FIXED: Ensure all date fields are properly formatted to ISO 8601 format
       const payload: CreateDocumentDto = {
         ...data,
-        date: toISODateTime(data.date) || '1900-01-01T00:00:00',  // FIXED: Provide fallback if date is missing
+        date: toISODateTime(data.date) || new Date().toISOString(),  // FIXED: Proper ISO format
         dueDate: toISODateTime(data.dueDate),
         currencyDate: toISODateTime(data.currencyDate),
         partnerDocumentDate: toISODateTime(data.partnerDocumentDate),
@@ -570,8 +589,11 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
                   >
                     <option value="">-- Izaberite oporezivanje --</option>
                     {taxationMethods && Array.isArray(taxationMethods) && taxationMethods.map((method: any) => {
-                      const methodId = method.idNacinOporezivanja || method.id;
-                      const methodDescription = method.opis || method.description;  // FIXED: Use 'opis' from API
+                      const methodId = method.idNacinOporezivanja;  // FIXED: Use ONLY correct field
+                      const methodDescription = method.opis;        // FIXED: Use ONLY correct field
+                      
+                      console.log(`🔍 Rendering method: ID=${methodId}, Desc="${methodDescription}"`);
+                      
                       return (
                         <option key={methodId} value={methodId}>
                           {methodDescription}
