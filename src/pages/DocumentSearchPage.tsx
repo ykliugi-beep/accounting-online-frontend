@@ -2,13 +2,12 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import { api } from '../api';
-import { useAllCombos, usePartners } from '../hooks/useCombos';
+import { usePartners } from '../hooks/useCombos';
 import type { DocumentSearchDto, DocumentSearchResultDto } from '../types/api.types';
 import styles from './DocumentCreatePage.module.css';
 
 export const DocumentSearchPage: React.FC = () => {
   const navigate = useNavigate();
-  const { data: combosData } = useAllCombos('UR');
   const { data: allPartners } = usePartners(); // FIXED: Load partners separately (they're not in AllCombos)
 
   const [searchFilters, setSearchFilters] = useState<DocumentSearchDto>({
@@ -128,7 +127,7 @@ export const DocumentSearchPage: React.FC = () => {
                 }
               >
                 <option value="">-- Svi partneri --</option>
-                {allPartners?.map((partner: any) => ( // FIXED: Changed organizationalUnits to allPartners
+                {allPartners?.map((partner: any) => (
                   <option key={partner.idPartner || partner.id} value={partner.idPartner || partner.id}>
                     {partner.nazivPartnera || partner.name}
                   </option>
@@ -270,7 +269,7 @@ export const DocumentSearchPage: React.FC = () => {
                 onClick={() => handlePageChange(searchResults.pageNumber + 1)}
                 disabled={!searchResults.hasNextPage}
               >
-                Sleđeća →
+                Sledeća →
               </button>
             </div>
           )}
