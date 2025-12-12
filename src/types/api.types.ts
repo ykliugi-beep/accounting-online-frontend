@@ -1,21 +1,20 @@
 // ============================================================================
 // LOOKUP/COMBO TYPES - Backend Stored Procedures Results
-// ⚠️ IMPORTANT: Property names match backend C# DTOs (PascalCase)
+// IMPORTANT: Property names match backend C# DTOs (PascalCase)
 // Backend uses System.Text.Json with default camelCase serialization
 // ============================================================================
 
 export interface PartnerComboDto {
-  idPartner: number;                // IdPartner
-  nazivPartnera: string;            // NazivPartnera
-  mesto: string | null;             // Mesto
-  opis: string | null;              // Opis (Status description)
-  idStatus: number;                 // IdStatus
-  idNacinOporezivanjaNabavka: number | null;  // IdNacinOporezivanjaNabavka
-  obracunAkciza: number;            // ObracunAkciza (0 or 1)
-  obracunPorez: number;             // ObracunPorez (0 or 1)
-  idReferent: number | null;        // IdReferent
-  sifraPartner: string | null;      // SifraPartner
-  /** @deprecated Legacy fields for backward compatibility */
+  idPartner: number;
+  nazivPartnera: string;
+  mesto: string | null;
+  opis: string | null;
+  idStatus: number;
+  idNacinOporezivanjaNabavka: number | null;
+  obracunAkciza: number;
+  obracunPorez: number;
+  idReferent: number | null;
+  sifraPartner: string | null;
   id?: number;
   code?: string;
   name?: string;
@@ -24,11 +23,10 @@ export interface PartnerComboDto {
 }
 
 export interface OrganizationalUnitComboDto {
-  idOrganizacionaJedinica: number;  // IdOrganizacionaJedinica
-  naziv: string;                    // Naziv
-  mesto: string | null;             // Mesto
-  sifra: string | null;             // Sifra
-  /** @deprecated Legacy fields for backward compatibility */
+  idOrganizacionaJedinica: number;
+  naziv: string;
+  mesto: string | null;
+  sifra: string | null;
   id?: number;
   name?: string;
   code?: string;
@@ -36,12 +34,11 @@ export interface OrganizationalUnitComboDto {
 }
 
 export interface TaxationMethodComboDto {
-  idNacinOporezivanja: number;      // IdNacinOporezivanja
-  opis: string;                     // Opis
-  obracunAkciza: number;            // ObracunAkciza (0 or 1)
-  obracunPorez: number;             // ObracunPorez (0 or 1)
-  obracunPorezPomocni: number;      // ObracunPorezPomocni (0 or 1)
-  /** @deprecated Legacy fields for backward compatibility */
+  idNacinOporezivanja: number;
+  opis: string;
+  obracunAkciza: number;
+  obracunPorez: number;
+  obracunPorezPomocni: number;
   id?: number;
   description?: string;
   calculateExcise?: boolean;
@@ -49,10 +46,9 @@ export interface TaxationMethodComboDto {
 }
 
 export interface ReferentComboDto {
-  idRadnik: number;                 // IdRadnik
-  imePrezime: string;               // ImePrezime (matches backend DTO and SQL alias "IME I PREZIME")
-  sifraRadnika: string | null;      // SifraRadnika
-  /** @deprecated Legacy fields for backward compatibility */
+  idRadnik: number;
+  imePrezime: string;
+  sifraRadnika: string | null;
   imeRadnika?: string;
   id?: number;
   fullName?: string;
@@ -60,25 +56,19 @@ export interface ReferentComboDto {
 }
 
 export interface ReferenceDocumentComboDto {
-  idDokument: number;               // IdDokument
-  brojDokumenta: string;            // BrojDokumenta
-  datum: string;                    // Datum (ISO 8601)
-  nazivPartnera: string;            // NazivPartnera
-  /** @deprecated Legacy fields for backward compatibility */
+  idDokument: number;
+  brojDokumenta: string;
+  datum: string;
+  nazivPartnera: string;
   id?: number;
   documentNumber?: string;
   date?: string;
   partnerName?: string;
 }
 
-// spPoreskaStopaCombo returns ONLY 2 columns: IDPoreskaStopa, Naziv
-// ProcenatPoreza is NOT available from this stored procedure
-// Note: ProcenatPoreza IS available via spArtikalComboUlaz (articles)
 export interface TaxRateComboDto {
-  idPoreskaStopa: string;           // IdPoreskaStopa - char(2): "01", "02", "03"
-  naziv: string;                    // Naziv
-  // procenatPoreza - REMOVED: Not returned by spPoreskaStopaCombo
-  /** @deprecated Legacy fields for backward compatibility */
+  idPoreskaStopa: string;
+  naziv: string;
   procenat?: number;
   procenatPoreza?: number;
   id?: string;
@@ -87,18 +77,17 @@ export interface TaxRateComboDto {
 }
 
 export interface ArticleComboDto {
-  idArtikal: number;                // IdArtikal
-  sifraArtikal: string;             // SifraArtikal
-  nazivArtikla: string;             // NazivArtikla
-  jedinicaMere: string | null;      // JedinicaMere
-  idPoreskaStopa: string | null;    // IdPoreskaStopa
-  procenatPoreza: number;           // ProcenatPoreza (Available HERE from spArtikalComboUlaz)
-  akciza: number;                   // Akciza
-  koeficijentKolicine: number;      // KoeficijentKolicine
-  imaLot: boolean;                  // ImaLot
-  otkupnaCena: number | null;       // OtkupnaCena
-  poljoprivredniProizvod: boolean;  // PoljoprivredniProizvod
-  /** @deprecated Legacy fields for backward compatibility */
+  idArtikal: number;
+  sifraArtikal: string;
+  nazivArtikla: string;
+  jedinicaMere: string | null;
+  idPoreskaStopa: string | null;
+  procenatPoreza: number;
+  akciza: number;
+  koeficijentKolicine: number;
+  imaLot: boolean;
+  otkupnaCena: number | null;
+  poljoprivredniProizvod: boolean;
   id?: number;
   code?: string;
   name?: string;
@@ -106,18 +95,18 @@ export interface ArticleComboDto {
 }
 
 export interface CostTypeComboDto {
-  idUlazniRacuniIzvedeni: number;   // IdUlazniRacuniIzvedeni
-  naziv: string;                    // Naziv
-  opis: string | null;              // Opis
-  nazivSpecifikacije: string | null; // NazivSpecifikacije
-  obracunPorez: number;             // ObracunPorez (0 or 1)
-  idUlazniRacuniOsnovni: number;    // IdUlazniRacuniOsnovni
+  idUlazniRacuniIzvedeni: number;
+  naziv: string;
+  opis: string | null;
+  nazivSpecifikacije: string | null;
+  obracunPorez: number;
+  idUlazniRacuniOsnovni: number;
 }
 
 export interface CostDistributionMethodComboDto {
-  idNacinDeljenjaTroskova: number;  // IdNacinDeljenjaTroskova
-  naziv: string;                    // Naziv
-  opisNacina: string;               // OpisNacina
+  idNacinDeljenjaTroskova: number;
+  naziv: string;
+  opisNacina: string;
 }
 
 // ============================================================================
@@ -125,9 +114,9 @@ export interface CostDistributionMethodComboDto {
 // ============================================================================
 
 export interface CreateDocumentDto {
-  documentTypeCode: string; // "UR", "ND", "OT"...
+  documentTypeCode: string;
   documentNumber: string;
-  date: string; // ISO 8601
+  date: string;
   partnerId: number | null;
   organizationalUnitId: number;
   referentId: number | null;
@@ -173,7 +162,7 @@ export interface DocumentDto {
   createdBy: string;
   updatedAt: string | null;
   updatedBy: string | null;
-  etag: string; // Base64 RowVersion
+  etag: string;
 }
 
 // ============================================================================
@@ -193,6 +182,7 @@ export interface DocumentSearchDto {
   sortDirection?: 'asc' | 'desc';
 }
 
+// Backend returns PaginatedResult<DocumentDto> - with computed pagination helpers
 export interface DocumentSearchResultDto {
   documents: DocumentDto[];
   totalCount: number;
@@ -249,7 +239,7 @@ export interface DocumentLineItemDto {
   notes: string | null;
   createdAt: string;
   updatedAt: string | null;
-  etag: string; // Base64 RowVersion
+  etag: string;
 }
 
 // ============================================================================
@@ -358,6 +348,13 @@ export interface DocumentCostDto {
 // ============================================================================
 // PAGINATION
 // ============================================================================
+
+export interface PaginatedResult<T> {
+  items: T[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+}
 
 export interface PagedResponse<T> {
   items: T[];
