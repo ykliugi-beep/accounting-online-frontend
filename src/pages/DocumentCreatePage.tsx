@@ -64,8 +64,9 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
   const artikliDebounceTimer = useRef<NodeJS.Timeout | null>(null);
   const [editingArticleIndex, setEditingArticleIndex] = useState<number | null>(null);
 
-  // TAXATION METHODS (NAČINI OPOREZIVANJA)
+  // TAXATION METHODS (NAČINI OPOREZIVANJA) - FIXED: Add loading state for proper dropdown rendering
   const [taxationMethods, setTaxationMethods] = useState<any[]>([]);
+  const [taxMethodsLoading, setTaxMethodsLoading] = useState(true);
 
   // FORM DATA - FIXED: organizationalUnitId je required (number), partnerId/referentId/currencyId/taxationMethodId su optional (number | null)
   const [formData, setFormData] = useState<CreateDocumentDto>({
@@ -106,14 +107,37 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
         const taksData = await api.lookup.getTaxRates();
         console.log(`✅ Loaded ${taksData.length} tax rates`);
 
-        // Učitaj načine oporezivanja
-        const taxMethodsData = await api.lookup.getTaxationMethods();
-        setTaxationMethods(taxMethodsData);
-        console.log(`✅ Loaded ${taxMethodsData.length} taxation methods`);
+        // Učitaj načine oporezivanja - FIXED: Properly load with loading state
+        setTaxMethodsLoading(true);
+        try {
+          const taxMethodsData = await api.lookup.getTaxationMethods();
+          console.log('🔍 Tax Methods Response:', taxMethodsData);
+          
+          if (Array.isArray(taxMethodsData)) {
+            setTaxationMethods(taxMethodsData);
+            console.log(`✅ Loaded ${taxMethodsData.length} taxation methods`);
+            
+            // Log method IDs and names for debugging
+            taxMethodsData.forEach((m: any) => {
+              const id = m.idNacinOporezivanja || m.id;
+              const name = m.naziv || m.name;
+              console.log(`  - Method ID: ${id}, Name: "${name}"`);
+            });
+          } else {
+            console.warn('⚠️ Tax methods response is not an array:', taxMethodsData);
+            setTaxationMethods([]);
+          }
+        } catch (taxErr) {
+          console.error('❌ Failed to load taxation methods:', taxErr);
+          setTaxationMethods([]);
+        } finally {
+          setTaxMethodsLoading(false);
+        }
       } catch (err) {
         console.error('❌ Failed to load data:', err);
         setAllArtikli([]);
         setTaxationMethods([]);
+        setTaxMethodsLoading(false);
       }
     };
     loadAllData();
@@ -516,20 +540,31 @@ export const DocumentCreatePage: React.FC<DocumentCreatePageProps> = ({ docType 
 
               <div className={styles.formGroup}>
                 <label>Oporezivanje: <span style={{color: 'red'}}>*</span></label>
-                <select 
-                  value={formData.taxationMethodId || ''} 
-                  onChange={(e) => setFormData({ 
-                    ...formData, 
-                    taxationMethodId: e.target.value ? parseInt(e.target.value) : null 
-                  })}
-                >
-                  <option value="">-- Izaberite oporezivanje --</option>
-                  {taxationMethods.map((method: any) => (
-                    <option key={method.idNacinOporezivanja || method.id} value={method.idNacinOporezivanja || method.id}>
-                      {method.naziv || method.name}
-                    </option>
-                  ))}
-                </select>
+                {taxMethodsLoading ? (
+                  <select disabled style={{ color: '#666' }}>
+                    <option>⏳ Učitavanje...</option>
+                  </select>
+                ) : (
+                  <select 
+                    value={formData.taxationMethodId || ''} 
+                    onChange={(e) => {
+                      const value = e.target.value ? parseInt(e.target.value) : null;
+                      console.log('🔄 Taxation Method Changed:', { value, rawValue: e.target.value });
+                      setFormData({ ...formData, taxationMethodId: value });
+                    }}
+                  >
+                    <option value="">-- Izaberite oporezivanje --</option>
+                    {taxationMethods && Array.isArray(taxationMethods) && taxationMethods.map((method: any) => {
+                      const methodId = method.idNacinOporezivanja || method.id;
+                      const methodName = method.naziv || method.name;
+                      return (
+                        <option key={methodId} value={methodId}>
+                          {methodName}
+                        </option>
+                      );
+                    })}
+                  </select>
+                )}
               </div>
 
               <div className={styles.formGroup}>
